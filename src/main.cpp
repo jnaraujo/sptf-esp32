@@ -4,6 +4,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <U8g2_for_Adafruit_GFX.h>
 #include "secrets.h"
 #include "spotify.h"
 #include <Ticker.h>
@@ -45,11 +46,12 @@ void fetchSpotifyState();
 String wifiStatusToString(wl_status_t status);
 
 Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
+U8G2_FOR_ADAFRUIT_GFX u8g2_for_adafruit_gfx;
 
 Ticker refreshTokenTicker;
 Ticker refetchSpotifyStateTicker;
 
-PlaybackState spotifyState = {title: "no title"};
+PlaybackState spotifyState;
 String spotifyToken = "";
 
 
@@ -65,6 +67,12 @@ void setup() {
   display.setTextColor(SSD1306_WHITE);
   display.setTextWrap(false);
   display.clearDisplay();
+
+  u8g2_for_adafruit_gfx.begin(display);
+  u8g2_for_adafruit_gfx.setFontMode(1);
+  u8g2_for_adafruit_gfx.setFontDirection(0);
+  u8g2_for_adafruit_gfx.setForegroundColor(SSD1306_WHITE);
+
   display.display();
 
   for (int i = 0; i < 5; i++){
@@ -127,17 +135,17 @@ void loop() {
 
   display.clearDisplay(); 
 
-  display.setTextSize(2);
-  display.setCursor(0, 20);
-  display.print(spotifyState.title);
+  u8g2_for_adafruit_gfx.setFont(u8g2_font_profont12_tf);
+  u8g2_for_adafruit_gfx.setCursor(0, 10);
+  u8g2_for_adafruit_gfx.print(spotifyState.artist);
 
-  display.setTextSize(1);
-  display.setCursor(0, 44);
-  display.print(spotifyState.isPlaying ? "Playing" : "Paused");
+  u8g2_for_adafruit_gfx.setFont(u8g2_font_profont17_tf);
+  u8g2_for_adafruit_gfx.setCursor(0, 28);
+  u8g2_for_adafruit_gfx.print(spotifyState.title);
 
-  display.setCursor(0, 4);
-  display.print(spotifyState.artist);
-
+  u8g2_for_adafruit_gfx.setFont(u8g2_font_profont12_tf);
+  u8g2_for_adafruit_gfx.setCursor(0, 44);
+  u8g2_for_adafruit_gfx.print(spotifyState.isPlaying ? "Playing" : "Paused");
   display.display();
 }
 
