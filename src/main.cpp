@@ -126,30 +126,36 @@ void loop() {
         Spotify::previous(spotifyToken);
         break;
       case BTN_STATES::CONFIRM:
-        spotifyStateMutex.lock();
-        bool isPlaying = spotifyState.isPlaying;
-        spotifyStateMutex.unlock();
+        {
+          spotifyStateMutex.lock();
+          bool isPlaying = spotifyState.isPlaying;
+          spotifyStateMutex.unlock();
 
-        if(isPlaying) {
-          Spotify::pause(spotifyToken);
-        } else {
-          Spotify::play(spotifyToken);
+          if(isPlaying) {
+            Spotify::pause(spotifyToken);
+          } else {
+            Spotify::play(spotifyToken);
+          }
         }
         break;
       case BTN_STATES::UP:
-        spotifyStateMutex.lock();
-        int newVolume = spotifyState.volume_percent + 10;
-        spotifyStateMutex.unlock();
+        {
+          spotifyStateMutex.lock();
+          int newVolume = spotifyState.volume_percent + 10;
+          spotifyStateMutex.unlock();
 
-        Spotify::setVolume(spotifyToken, newVolume);
-        continue;
+          Spotify::setVolume(spotifyToken, newVolume);
+        }
+        break;
       case BTN_STATES::DOWN:
-        spotifyStateMutex.lock();
-        int newVolume = spotifyState.volume_percent - 10;
-        spotifyStateMutex.unlock();
+        {
+          spotifyStateMutex.lock();
+          int newVolume = spotifyState.volume_percent - 10;
+          spotifyStateMutex.unlock();
 
-        Spotify::setVolume(spotifyToken, newVolume);
-        continue; // skip loop
+          Spotify::setVolume(spotifyToken, newVolume);
+        }
+        break;
       default:
         break;
       }
