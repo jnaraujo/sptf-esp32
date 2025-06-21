@@ -1,6 +1,12 @@
 #include "spotify.h"
 
-const String SPOTIFY_API = "https://api.spotify.com";
+const String SPOTIFY_API_BASE = "https://api.spotify.com";
+
+void setupHTTPClient(HTTPClient& http, String endpoint, String accessToken) {
+  http.begin(SPOTIFY_API_BASE + endpoint);
+  http.addHeader("Authorization", "Bearer " + accessToken);
+}
+
 
 String Spotify::refreshToken(String clientID, String clientSecret, String refreshToken) {
   HTTPClient http;
@@ -41,8 +47,8 @@ String Spotify::refreshToken(String clientID, String clientSecret, String refres
 
 PlaybackState Spotify::fetchPlaybackState(String accessToken) {
   HTTPClient http;
-  http.begin(SPOTIFY_API + "/v1/me/player?market=BR");
-  http.addHeader("Authorization",  "Bearer " + accessToken);
+  setupHTTPClient(http, "/v1/me/player?market=BR", accessToken);
+
   int status = http.GET();
   String payload = http.getString();
   http.end();
@@ -76,9 +82,9 @@ PlaybackState Spotify::fetchPlaybackState(String accessToken) {
 
 void Spotify::play(String accessToken) {
   HTTPClient http;
-  http.begin(SPOTIFY_API + "/v1/me/player/play");
-  http.addHeader("Authorization",  "Bearer " + accessToken);
+  setupHTTPClient(http, "/v1/me/player/play", accessToken);
   http.addHeader("Content-Length", "0");
+
   int status = http.PUT("");
   http.end();
   
@@ -89,9 +95,9 @@ void Spotify::play(String accessToken) {
 
 void Spotify::pause(String accessToken) {
   HTTPClient http;
-  http.begin(SPOTIFY_API + "/v1/me/player/pause");
-  http.addHeader("Authorization",  "Bearer " + accessToken);
+  setupHTTPClient(http, "/v1/me/player/pause", accessToken);
   http.addHeader("Content-Length", "0");
+
   int status = http.PUT("");
   http.end();
   
@@ -102,9 +108,9 @@ void Spotify::pause(String accessToken) {
 
 void Spotify::next(String accessToken) {
   HTTPClient http;
-  http.begin(SPOTIFY_API + "/v1/me/player/next");
-  http.addHeader("Authorization",  "Bearer " + accessToken);
+  setupHTTPClient(http, "/v1/me/player/next", accessToken);
   http.addHeader("Content-Length", "0");
+
   int status = http.POST("");
   http.end();
   
@@ -115,9 +121,9 @@ void Spotify::next(String accessToken) {
 
 void Spotify::previous(String accessToken) {
   HTTPClient http;
-  http.begin(SPOTIFY_API + "/v1/me/player/previous");
-  http.addHeader("Authorization",  "Bearer " + accessToken);
+  setupHTTPClient(http, "/v1/me/player/previous", accessToken);
   http.addHeader("Content-Length", "0");
+
   int status = http.POST("");
   http.end();
   
@@ -130,9 +136,9 @@ void Spotify::setVolume(String accessToken, int volume) {
   volume = max(0, min(volume, 100));
 
   HTTPClient http;
-  http.begin(SPOTIFY_API + "/v1/me/player/volume?volume_percent=" + volume);
-  http.addHeader("Authorization",  "Bearer " + accessToken);
+  setupHTTPClient(http, "/v1/me/player/volume?volume_percent=" + String(volume), accessToken);
   http.addHeader("Content-Length", "0");
+  
   int status = http.PUT("");
   http.end();
   
