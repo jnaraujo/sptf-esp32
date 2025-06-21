@@ -46,11 +46,15 @@ PlaybackState Spotify::fetchPlaybackState(String accessToken) {
   int status = http.GET();
   String payload = http.getString();
   http.end();
+
+  PlaybackState ps;
   
   if(status != 200) {
     Serial.printf("HTTP Error: %d\n", status);
     Serial.println(payload);
-    return PlaybackState{title: "err"};
+
+    ps.title = "err";
+    return ps;
   }
 
   JsonDocument doc;
@@ -58,22 +62,16 @@ PlaybackState Spotify::fetchPlaybackState(String accessToken) {
   if(error) {
     Serial.print("Erro ao parsear JSON: ");
     Serial.println(error.c_str());
-    return PlaybackState{
-      title: "err",
-      artist: "err",
-      isPlaying: false,
-      volume_percent: 0
-    };
+
+    ps.title = "err";
+    return ps;
   }
 
-  const char* title = doc["item"]["name"];
-  const char* artist = doc["item"]["artists"][0]["name"];
-  return PlaybackState{
-    title: doc["item"]["name"],
-    artist: doc["item"]["artists"][0]["name"],
-    isPlaying: doc["is_playing"],
-    volume_percent: doc["device"]["volume_percent"]
-  };
+  ps.title = doc["item"]["name"].as<String>();
+  ps.artist = doc["item"]["artists"][0]["name"].as<String>();
+  ps.isPlaying = doc["is_playing"].as<bool>();
+  ps.volume_percent = doc["device"]["volume_percent"].as<int>();
+  return ps;
 }
 
 void Spotify::play(String accessToken) {

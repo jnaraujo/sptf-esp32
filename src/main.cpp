@@ -8,6 +8,7 @@
 #include "secrets.h"
 #include "spotify.h"
 #include <Ticker.h>
+#include <mutex>
 
 #define delayFetchSpotifyState 3
 #define delayRefreshToken 3600
@@ -41,19 +42,19 @@ struct Button {
 };
 
 int checkButton(int index, unsigned long currentMillis);
-void refreshToken();
 void fetchSpotifyState();
+void refreshToken();
+void backgroundTask(void *pvParameters);
 String wifiStatusToString(wl_status_t status);
 
 Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 U8G2_FOR_ADAFRUIT_GFX u8g2_for_adafruit_gfx;
 
 Ticker refreshTokenTicker;
-Ticker refetchSpotifyStateTicker;
 
+std::mutex spotifyStateMutex;
 PlaybackState spotifyState;
 String spotifyToken = "";
-
 
 unsigned long debounceDelay = 50;
 std::array<Button, 5> buttons;
@@ -89,10 +90,17 @@ void setup() {
   Serial.println("Connected.");
   Serial.printf("IP Addr: %s\n", WiFi.localIP().toString().c_str());
 
+   xTaskCreate(
+    backgroundTask,
+    "backgroundTask",
+    10000,
+    NULL,
+    1,
+    NULL
+  );
+
   refreshToken();
-  fetchSpotifyState();
   refreshTokenTicker.attach(delayRefreshToken, refreshToken);
-  refetchSpotifyStateTicker.attach(delayFetchSpotifyState, fetchSpotifyState);
 }
 
 void loop() {
@@ -102,6 +110,7 @@ void loop() {
     int reading = checkButton(i, currentMillis);
 
     if (reading) {
+      Serial.printf("BTN ID: %d\n", i);
       switch (i) {
       case BTN_STATES::RIGHT:
         Spotify::next(spotifyToken);
@@ -127,9 +136,6 @@ void loop() {
       default:
         break;
       }
-
-      refetchSpotifyStateTicker.attach(delayFetchSpotifyState, fetchSpotifyState);
-      fetchSpotifyState();
     }
   }
 
@@ -158,10 +164,23 @@ void refreshToken() {
 }
 
 void fetchSpotifyState() {
-  Serial.println("Fetching spotify state");
-  spotifyState = Spotify::fetchPlaybackState(spotifyToken);
-  if(spotifyState.title == "err") {
-    Serial.println("Err fetchPlaybackState");
+  spotifyStateMutex.lock();
+
+  if(spotifyToken != ""){
+    Serial.println("Fetching spotify state");
+    spotifyState = Spotify::fetchPlaybackState(spotifyToken);
+    if(spotifyState.title == "err") {
+      Serial.println("Err fetchPlaybackState");
+    }
+  }
+
+  spotifyStateMutex.unlock();
+}
+
+void backgroundTask(void *pvParameters) {
+  while (true) {
+    fetchSpotifyState();
+    delay(delayFetchSpotifyState);
   }
 }
 

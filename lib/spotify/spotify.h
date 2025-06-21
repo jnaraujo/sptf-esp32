@@ -10,6 +10,13 @@ struct PlaybackState {
   String artist;
   bool isPlaying;
   int volume_percent;
+
+   PlaybackState() {
+    title = "Hello!";
+    artist = ":p";
+    isPlaying = false;
+    volume_percent = 0;
+  }
 };
 
 namespace Spotify {
