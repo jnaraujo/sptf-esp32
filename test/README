@@ -1,0 +1,13 @@
+
+
+
+## how to get a auth code?
+
+https://accounts.spotify.com/authorize?client_id=CLIENT_ID_HERE&response_type=code&redirect_uri=http
+%3A%2F%2Flocalhost:3000&scope=user-read-currently-playing,user-modify-playback-state,user-read-playback-state
+
+
+CHANGE_BASE64_HERE = base64(client_id:client_secret)
+curl -H "Authorization: Basic CHANGE_BASE64_HERE"
+-d grant_type=authorization_code -d code=CHANGE_CODE_HERE -d redirect_uri=http%3A
+%2F%2Flocalhost:3000 https://accounts.spotify.com/api/token
