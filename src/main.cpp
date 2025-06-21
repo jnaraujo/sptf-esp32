@@ -10,7 +10,7 @@
 #include <Ticker.h>
 
 #define delayFetchSpotifyState 3
-#define delayRefreshToken 3000
+#define delayRefreshToken 3600
 #define OLED_ADDR 0x3C
 #define SCL 5
 #define SDA 4
