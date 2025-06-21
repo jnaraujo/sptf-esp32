@@ -104,6 +104,12 @@ void setup() {
 }
 
 void loop() {
+   if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Reconnecting to WiFi...");
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    return;
+  }
+
   unsigned long currentMillis = millis();
 
   for (int i = 0; i < 5; i++){
@@ -119,19 +125,29 @@ void loop() {
         Spotify::previous(spotifyToken);
         break;
       case BTN_STATES::CONFIRM:
-        if(spotifyState.isPlaying) {
+        spotifyStateMutex.lock();
+        bool isPlaying = spotifyState.isPlaying;
+        spotifyStateMutex.unlock();
+
+        if(isPlaying) {
           Spotify::pause(spotifyToken);
         } else {
           Spotify::play(spotifyToken);
         }
         break;
       case BTN_STATES::UP:
-        spotifyState.volume_percent += 10;
-        Spotify::setVolume(spotifyToken, spotifyState.volume_percent);
-        continue; // skip loop
+        spotifyStateMutex.lock();
+        int newVolume = spotifyState.volume_percent + 10;
+        spotifyStateMutex.unlock();
+
+        Spotify::setVolume(spotifyToken, newVolume);
+        continue;
       case BTN_STATES::DOWN:
-        spotifyState.volume_percent -= 10;
-        Spotify::setVolume(spotifyToken, spotifyState.volume_percent);
+        spotifyStateMutex.lock();
+        int newVolume = spotifyState.volume_percent - 10;
+        spotifyStateMutex.unlock();
+
+        Spotify::setVolume(spotifyToken, newVolume);
         continue; // skip loop
       default:
         break;
@@ -141,6 +157,7 @@ void loop() {
 
   display.clearDisplay(); 
 
+  spotifyStateMutex.lock();
   u8g2_for_adafruit_gfx.setFont(u8g2_font_profont12_tf);
   u8g2_for_adafruit_gfx.setCursor(0, 10);
   u8g2_for_adafruit_gfx.print(spotifyState.artist);
@@ -152,6 +169,8 @@ void loop() {
   u8g2_for_adafruit_gfx.setFont(u8g2_font_profont10_tf);
   u8g2_for_adafruit_gfx.setCursor(0, 44);
   u8g2_for_adafruit_gfx.print(spotifyState.isPlaying ? "Playing" : "Paused");
+  spotifyStateMutex.unlock();
+
   display.display();
 }
 
