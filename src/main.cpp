@@ -10,7 +10,7 @@
 #include <Ticker.h>
 #include <mutex>
 
-#define delayFetchSpotifyState 3
+#define delayFetchSpotifyState 3000
 #define delayRefreshToken 3600
 #define OLED_ADDR 0x3C
 #define SCL 5
@@ -113,6 +113,13 @@ void loop() {
 
   unsigned long currentMillis = millis();
 
+  spotifyStateMutex.lock();
+  int currentVolume = spotifyState.volume_percent;
+  String title = spotifyState.title;
+  String artist = spotifyState.artist;
+  bool isPlaying = spotifyState.isPlaying;
+  spotifyStateMutex.unlock();
+
   for (int i = 0; i < 5; i++){
     int reading = checkButton(i, currentMillis);
 
@@ -126,35 +133,17 @@ void loop() {
         Spotify::previous(spotifyToken);
         break;
       case BTN_STATES::CONFIRM:
-        {
-          spotifyStateMutex.lock();
-          bool isPlaying = spotifyState.isPlaying;
-          spotifyStateMutex.unlock();
-
-          if(isPlaying) {
-            Spotify::pause(spotifyToken);
-          } else {
-            Spotify::play(spotifyToken);
-          }
+        if(isPlaying) {
+          Spotify::pause(spotifyToken);
+        } else {
+          Spotify::play(spotifyToken);
         }
         break;
       case BTN_STATES::UP:
-        {
-          spotifyStateMutex.lock();
-          int newVolume = spotifyState.volume_percent + 10;
-          spotifyStateMutex.unlock();
-
-          Spotify::setVolume(spotifyToken, newVolume);
-        }
+        Spotify::setVolume(spotifyToken, currentVolume + 10);
         break;
       case BTN_STATES::DOWN:
-        {
-          spotifyStateMutex.lock();
-          int newVolume = spotifyState.volume_percent - 10;
-          spotifyStateMutex.unlock();
-
-          Spotify::setVolume(spotifyToken, newVolume);
-        }
+        Spotify::setVolume(spotifyToken, currentVolume - 10);
         break;
       default:
         break;
@@ -162,21 +151,18 @@ void loop() {
     }
   }
 
-  display.clearDisplay(); 
 
-  spotifyStateMutex.lock();
   u8g2_for_adafruit_gfx.setFont(u8g2_font_profont12_tf);
   u8g2_for_adafruit_gfx.setCursor(0, 10);
-  u8g2_for_adafruit_gfx.print(spotifyState.artist);
+  u8g2_for_adafruit_gfx.print(artist);
 
   u8g2_for_adafruit_gfx.setFont(u8g2_font_profont17_tf);
   u8g2_for_adafruit_gfx.setCursor(0, 29);
-  u8g2_for_adafruit_gfx.print(spotifyState.title);
+  u8g2_for_adafruit_gfx.print(title);
 
   u8g2_for_adafruit_gfx.setFont(u8g2_font_profont10_tf);
   u8g2_for_adafruit_gfx.setCursor(0, 44);
-  u8g2_for_adafruit_gfx.print(spotifyState.isPlaying ? "Playing" : "Paused");
-  spotifyStateMutex.unlock();
+  u8g2_for_adafruit_gfx.print(isPlaying ? "Playing" : "Paused");
 
   display.display();
 }
@@ -190,17 +176,20 @@ void refreshToken() {
 }
 
 void fetchSpotifyState() {
-  spotifyStateMutex.lock();
+  
 
   if(spotifyToken != ""){
     Serial.println("Fetching spotify state");
-    spotifyState = Spotify::fetchPlaybackState(spotifyToken);
-    if(spotifyState.title == "err") {
+    PlaybackState newSpotifyState = Spotify::fetchPlaybackState(spotifyToken);
+    if(newSpotifyState.title == "err") {
       Serial.println("Err fetchPlaybackState");
+      return;
     }
-  }
 
-  spotifyStateMutex.unlock();
+    spotifyStateMutex.lock();
+    spotifyState = newSpotifyState;
+    spotifyStateMutex.unlock();
+  }
 }
 
 void backgroundTask(void *pvParameters) {
