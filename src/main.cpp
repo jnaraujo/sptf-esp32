@@ -143,7 +143,7 @@ void loop() {
   u8g2_for_adafruit_gfx.setCursor(0, 28);
   u8g2_for_adafruit_gfx.print(spotifyState.title);
 
-  u8g2_for_adafruit_gfx.setFont(u8g2_font_profont12_tf);
+  u8g2_for_adafruit_gfx.setFont(u8g2_font_profont10_tf);
   u8g2_for_adafruit_gfx.setCursor(0, 44);
   u8g2_for_adafruit_gfx.print(spotifyState.isPlaying ? "Playing" : "Paused");
   display.display();
