@@ -10,7 +10,7 @@
 #include <Ticker.h>
 #include <mutex>
 
-#define delayFetchSpotifyState 3000
+#define delayFetchSpotifyState 1000
 #define delayRefreshToken 3600
 #define OLED_ADDR 0x3C
 #define SCL 5
