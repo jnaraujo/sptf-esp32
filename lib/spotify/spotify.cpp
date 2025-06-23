@@ -5,6 +5,7 @@ const String SPOTIFY_API_BASE = "https://api.spotify.com";
 void setupHTTPClient(HTTPClient& http, String endpoint, String accessToken) {
   http.begin(SPOTIFY_API_BASE + endpoint);
   http.addHeader("Authorization", "Bearer " + accessToken);
+  http.setTimeout(1000);
 }
 
 
@@ -48,18 +49,25 @@ String Spotify::refreshToken(String clientID, String clientSecret, String refres
 PlaybackState Spotify::fetchPlaybackState(String accessToken) {
   HTTPClient http;
   setupHTTPClient(http, "/v1/me/player?market=BR", accessToken);
-
+  
   int status = http.GET();
-  String payload = http.getString();
-  http.end();
 
   PlaybackState ps;
+
+  if(status == 204) {
+    ps.title = "Not Playing";
+    ps.artist = ":p";
+    ps.isPlaying = false;
+    ps.volume_percent = 0;
+    return ps;
+  }
+
+  String payload = http.getString();
+  http.end();
   
   if(status != 200) {
     Serial.printf("HTTP Error: %d\n", status);
     Serial.println(payload);
-
-    ps.title = "err";
     return ps;
   }
 
