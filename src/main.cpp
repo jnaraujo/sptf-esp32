@@ -41,6 +41,8 @@ struct Button {
   unsigned long lastDebounceTime;
 };
 
+String wordWrap(String s, int limit);
+String formatString(const String& s, int numLines, int maxCharPerLine);
 int checkButton(int index, unsigned long currentMillis);
 void fetchSpotifyState();
 void refreshToken();
@@ -65,8 +67,8 @@ void setup() {
   Wire.begin(SDA, SCL);
 
   display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
-  display.setTextColor(SSD1306_WHITE);
   display.setTextWrap(false);
+  display.setTextColor(SSD1306_WHITE);
   display.clearDisplay();
 
   u8g2_for_adafruit_gfx.begin(display);
@@ -159,10 +161,11 @@ void loop() {
 
   u8g2_for_adafruit_gfx.setFont(u8g2_font_profont17_tf);
   u8g2_for_adafruit_gfx.setCursor(0, 29);
-  u8g2_for_adafruit_gfx.print(title);
+
+  u8g2_for_adafruit_gfx.print(formatString(title, 2, 14));
 
   u8g2_for_adafruit_gfx.setFont(u8g2_font_profont10_tf);
-  u8g2_for_adafruit_gfx.setCursor(0, 44);
+  u8g2_for_adafruit_gfx.setCursor(0, 64);
   u8g2_for_adafruit_gfx.print(isPlaying ? "Playing" : "Paused");
 
   display.display();
@@ -177,8 +180,6 @@ void refreshToken() {
 }
 
 void fetchSpotifyState() {
-  
-
   if(spotifyToken != ""){
     Serial.println("Fetching spotify state");
     PlaybackState newSpotifyState = Spotify::fetchPlaybackState(spotifyToken);
@@ -219,6 +220,35 @@ int checkButton(int index, unsigned long currentMillis) {
 
   btn->lastState = reading;
   return 0;  // No button press detected
+}
+
+String formatString(const String& s, int numLines, int maxCharPerLine) {
+  const int totalMaxChars = maxCharPerLine * numLines;
+  const String ellipsis = "...";
+
+  if(s.length() <= totalMaxChars) {
+    return s;
+  }
+
+  return s.substring(0, totalMaxChars - ellipsis.length()) + ellipsis;
+}
+
+String wordWrap(String s, int limit) {
+  int space = 0;
+  int i = 0;
+  int line = 0;
+  while (i < s.length()) {
+    if (s.substring(i, i + 1) == " ") {
+      space = i;
+    }
+    if (line > limit - 1) {
+      s = s.substring(0, space) + "~" + s.substring(space + 1);
+      line = 0;
+    }
+    i++; line++;
+  }
+  s.replace("~", "\n");
+  return s;
 }
 
 String wifiStatusToString(wl_status_t status) {
