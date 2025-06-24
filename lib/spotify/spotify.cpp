@@ -27,8 +27,8 @@ String Spotify::refreshToken(String clientID, String clientSecret, String refres
     DeserializationError error = deserializeJson(doc, payload);
 
     if (error) {
-      Serial.print("Failed to parse JSON: ");
-      Serial.println(error.c_str());
+      DEBUG_PRINT("Failed to parse JSON: ");
+      DEBUG_PRINTLN(error.c_str());
     } else {
       const char* access_token = doc["access_token"];
       if (access_token) {
@@ -38,8 +38,8 @@ String Spotify::refreshToken(String clientID, String clientSecret, String refres
   } else {
     DEBUG_PRINTF("Request failed: %d\n", httpCode);
     String payload = http.getString();
-    Serial.println("Response:");
-    Serial.println(payload);
+    DEBUG_PRINTLN("Response:");
+    DEBUG_PRINTLN(payload);
   }
 
   http.end();
@@ -65,15 +65,15 @@ PlaybackState Spotify::fetchPlaybackState(String accessToken) {
 
   if(status != 200) {
     DEBUG_PRINTF("HTTP Error: %d\n", status);
-    Serial.println(payload);
+    DEBUG_PRINTLN(payload);
     return ps;
   }
 
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, payload);
   if(error) {
-    Serial.print("Erro ao parsear JSON: ");
-    Serial.println(error.c_str());
+    DEBUG_PRINT("Erro ao parsear JSON: ");
+    DEBUG_PRINTLN(error.c_str());
     return ps;
   }
 

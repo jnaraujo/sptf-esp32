@@ -100,13 +100,13 @@ void setup() {
     buttons[i] = {BTN_PINS[i], HIGH, HIGH, 0};
   }
 
-  Serial.println("Connecting to Wi-Fi");
+  DEBUG_PRINTLN("Connecting to Wi-Fi");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
     DEBUG_PRINTF("Status: %s\n", wifiStatusToString(WiFi.status()).c_str());
     delay(500);
   }
-  Serial.println("Connected.");
+  DEBUG_PRINTLN("Connected.");
   DEBUG_PRINTF("IP Addr: %s\n", WiFi.localIP().toString().c_str());
 
   xTaskCreate(
@@ -124,7 +124,7 @@ void setup() {
 
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Reconnecting to WiFi...");
+    DEBUG_PRINTLN("Reconnecting to WiFi...");
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     delay(1000);
     return;
@@ -233,10 +233,10 @@ void loop() {
 }
 
 void refreshToken() {
-  Serial.println("Refreshing access token");
+  DEBUG_PRINTLN("Refreshing access token");
   String token = Spotify::refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
   if(token == "err") {
-    Serial.println("Err refreshToken");
+    DEBUG_PRINTLN("Err refreshToken");
   } else {
     spotifyTokenMutex.lock();
     spotifyToken = token;
@@ -246,10 +246,10 @@ void refreshToken() {
 
 void fetchSpotifyState() {
   if(getSpotifyToken() != ""){
-    Serial.println("Fetching spotify state");
+    DEBUG_PRINTLN("Fetching spotify state");
     PlaybackState newSpotifyState = Spotify::fetchPlaybackState(getSpotifyToken());
     if(newSpotifyState.title == "err") {
-      Serial.println("Err fetchPlaybackState");
+      DEBUG_PRINTLN("Err fetchPlaybackState");
       return;
     }
 
