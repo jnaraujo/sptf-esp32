@@ -8,12 +8,14 @@
 struct PlaybackState {
   String title;
   String artist;
+  String album;
   bool isPlaying;
   int volume_percent;
 
    PlaybackState() {
-    title = "Hello!";
-    artist = ":p";
+    title = "N/A";
+    artist = "N/A";
+    album = "N/A";
     isPlaying = false;
     volume_percent = 0;
   }

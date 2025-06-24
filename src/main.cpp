@@ -47,6 +47,7 @@ int checkButton(int index, uint32_t currentMillis);
 void fetchSpotifyState();
 void refreshToken();
 void backgroundTask(void *pvParameters);
+String centerString(const String& text, int totalWidth);
 String wifiStatusToString(wl_status_t status);
 
 Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
@@ -60,6 +61,8 @@ String spotifyToken = "";
 
 uint32_t debounceDelay = 50;
 std::array<Button, 5> buttons;
+uint32_t lastBlink = millis();
+bool shouldBlink = false;
 
 void setup() {
   Serial.begin(115200);
@@ -86,7 +89,7 @@ void setup() {
   Serial.println("Connecting to Wi-Fi");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
-    Serial.printf("Status: %s\n", wifiStatusToString(WiFi.status()));
+    Serial.printf("Status: %s\n", wifiStatusToString(WiFi.status()).c_str());
     delay(500);
   }
   Serial.println("Connected.");
@@ -119,6 +122,7 @@ void loop() {
   int currentVolume = spotifyState.volume_percent;
   String title = spotifyState.title;
   String artist = spotifyState.artist;
+  String album = spotifyState.album;
   bool isPlaying = spotifyState.isPlaying;
   spotifyStateMutex.unlock();
 
@@ -155,18 +159,42 @@ void loop() {
 
   display.clearDisplay();
 
-  u8g2_for_adafruit_gfx.setFont(u8g2_font_profont12_tf);
+  u8g2_for_adafruit_gfx.setFont(u8g2_font_profont10_tf);
   u8g2_for_adafruit_gfx.setCursor(0, 10);
-  u8g2_for_adafruit_gfx.print(artist);
+
+  String line = formatString(artist, 1, 14) + " - " + album;
+  u8g2_for_adafruit_gfx.print(
+    formatString(
+      line,
+    1, 24)
+  );
 
   u8g2_for_adafruit_gfx.setFont(u8g2_font_profont17_tf);
   u8g2_for_adafruit_gfx.setCursor(0, 29);
 
   u8g2_for_adafruit_gfx.print(wordWrap(formatString(title, 2, 14), 14));
 
+  if (currentMillis - lastBlink > 500) {
+    shouldBlink = !shouldBlink;
+    lastBlink = currentMillis;
+  }
+
+  String playingTxt = "(^-^)/";
+  String pausedTxt = "(-.-) zZ";
+  String pad = "=-=-=-=";
+  if(shouldBlink) {
+    pad = "-=-=-=-";
+    if(isPlaying) {
+      playingTxt = "(^O^)_";
+    } else {
+      pausedTxt = "(-.-) Zz";
+    }
+  }
+
   u8g2_for_adafruit_gfx.setFont(u8g2_font_profont10_tf);
-  u8g2_for_adafruit_gfx.setCursor(0, 64);
-  u8g2_for_adafruit_gfx.print(isPlaying ? "Playing" : "Paused");
+  u8g2_for_adafruit_gfx.setCursor(0, 60);
+  u8g2_for_adafruit_gfx.printf("%s %s %s", pad.c_str(), centerString(isPlaying ? playingTxt : pausedTxt, 10).c_str(), pad.c_str());
+
 
   display.display();
 }
@@ -222,6 +250,25 @@ int checkButton(int index, uint32_t currentMillis) {
   return 0;  // No button press detected
 }
 
+String centerString(const String& text, int totalWidth) {
+  int textLen = text.length();
+  if (textLen >= totalWidth) {
+    return text;
+  }
+  int totalPadding = totalWidth - textLen;
+  int leftPadding = totalPadding / 2;
+  int rightPadding = totalPadding - leftPadding;
+  String paddedString = "";
+  for (int i = 0; i < leftPadding; i++) {
+    paddedString += " ";
+  }
+  paddedString += text;
+  for (int i = 0; i < rightPadding; i++) {
+    paddedString += " ";
+  }
+  return paddedString;
+}
+
 String formatString(const String& s, int numLines, int maxCharPerLine) {
   const int totalMaxChars = maxCharPerLine * numLines;
   const String ellipsis = "...";
@@ -230,7 +277,11 @@ String formatString(const String& s, int numLines, int maxCharPerLine) {
     return s;
   }
 
-  return s.substring(0, totalMaxChars - ellipsis.length()) + ellipsis;
+  String trimmed = s.substring(0, totalMaxChars - ellipsis.length());
+  if (trimmed.endsWith(" ")) {
+    trimmed.remove(trimmed.length() - 1);
+  }
+  return trimmed + ellipsis;
 }
 
 String wordWrap(String s, int limit) {
