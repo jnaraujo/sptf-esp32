@@ -19,31 +19,23 @@ String Spotify::refreshToken(String clientID, String clientSecret, String refres
   String postData = "grant_type=refresh_token";
   postData += "&refresh_token=" + refreshToken;
   int httpCode = http.POST(postData);
-  
-  String newToken = "err";
-  if (httpCode == 200) {
-    String payload = http.getString();
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, payload);
+  String payload = http.getString();
+  http.end();
 
-    if (error) {
-      DEBUG_PRINT("Failed to parse JSON: ");
-      DEBUG_PRINTLN(error.c_str());
-    } else {
-      const char* access_token = doc["access_token"];
-      if (access_token) {
-        newToken = access_token;
-      }
-    }
-  } else {
+  if (httpCode != 200) {
     DEBUG_PRINTF("Request failed: %d\n", httpCode);
-    String payload = http.getString();
-    DEBUG_PRINTLN("Response:");
-    DEBUG_PRINTLN(payload);
+    return "";
   }
 
-  http.end();
-  return newToken;
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, payload);
+
+  if (error) {
+    DEBUG_PRINTF("Failed to parse JSON: %s\n", error.c_str());
+    return "";
+  }
+
+  return doc["access_token"].as<String>();
 }
 
 PlaybackState Spotify::fetchPlaybackState(String accessToken) {
