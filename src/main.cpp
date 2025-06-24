@@ -38,12 +38,12 @@ struct Button {
   int pin;
   int state;
   int lastState;
-  unsigned long lastDebounceTime;
+  uint32_t lastDebounceTime;
 };
 
 String wordWrap(String s, int limit);
 String formatString(const String& s, int numLines, int maxCharPerLine);
-int checkButton(int index, unsigned long currentMillis);
+int checkButton(int index, uint32_t currentMillis);
 void fetchSpotifyState();
 void refreshToken();
 void backgroundTask(void *pvParameters);
@@ -58,7 +58,7 @@ std::mutex spotifyStateMutex;
 PlaybackState spotifyState;
 String spotifyToken = "";
 
-unsigned long debounceDelay = 50;
+uint32_t debounceDelay = 50;
 std::array<Button, 5> buttons;
 
 void setup() {
@@ -92,7 +92,7 @@ void setup() {
   Serial.println("Connected.");
   Serial.printf("IP Addr: %s\n", WiFi.localIP().toString().c_str());
 
-   xTaskCreate(
+  xTaskCreate(
     backgroundTask,
     "backgroundTask",
     10000,
@@ -106,14 +106,14 @@ void setup() {
 }
 
 void loop() {
-   if (WiFi.status() != WL_CONNECTED) {
+  if (WiFi.status() != WL_CONNECTED) {
     Serial.println("Reconnecting to WiFi...");
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     delay(1000);
     return;
   }
 
-  unsigned long currentMillis = millis();
+  uint32_t currentMillis = millis();
 
   spotifyStateMutex.lock();
   int currentVolume = spotifyState.volume_percent;
@@ -201,7 +201,7 @@ void backgroundTask(void *pvParameters) {
   }
 }
 
-int checkButton(int index, unsigned long currentMillis) {
+int checkButton(int index, uint32_t currentMillis) {
   Button *btn = &buttons.at(index);
   int reading = digitalRead(btn->pin);
 
