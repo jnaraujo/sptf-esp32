@@ -176,9 +176,6 @@ void loop() {
         });
         break;
       case BTN_STATES::CONFIRM:
-        xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
-        spotifyState.isPlaying = !isPlaying;
-        xSemaphoreGive(spotifyStateMutex);
         addRequestToPool([=]() {
           if(isPlaying) {
             Spotify::pause(getSpotifyToken());
