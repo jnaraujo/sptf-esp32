@@ -10,7 +10,6 @@
 #include <spotify.h>
 #include <Ticker.h>
 #include <debug.h>
-#include <mutex>
 
 #define delayFetchSpotifyState 1000
 #define delayRefreshToken 3600
@@ -57,14 +56,16 @@ U8G2_FOR_ADAFRUIT_GFX u8g2_for_adafruit_gfx;
 
 Ticker refreshTokenTicker;
 
-std::mutex spotifyStateMutex;
+SemaphoreHandle_t spotifyStateMutex;
 PlaybackState spotifyState;
-std::mutex spotifyTokenMutex;
+SemaphoreHandle_t spotifyTokenMutex;
 String spotifyToken = "";
 
 String getSpotifyToken() {
-  std::lock_guard<std::mutex> guard(spotifyTokenMutex);
-  return spotifyToken;
+  xSemaphoreTake(spotifyTokenMutex, portMAX_DELAY);
+  auto tkn = spotifyToken;
+  xSemaphoreGive(spotifyTokenMutex);
+  return tkn;
 }
 
 uint32_t debounceDelay = 50;
@@ -81,6 +82,10 @@ void addRequestToPool(std::function<void()> fn) {
 
 void setup() {
   Serial.begin(115200);
+
+  spotifyStateMutex = xSemaphoreCreateMutex();
+  spotifyTokenMutex = xSemaphoreCreateMutex();
+
 
   Wire.begin(SDA, SCL);
 
@@ -137,22 +142,22 @@ void loop() {
     if(token == "err") {
       DEBUG_PRINTLN("Err refreshToken");
     } else {
-      spotifyTokenMutex.lock();
+      xSemaphoreTake(spotifyTokenMutex, portMAX_DELAY);
       spotifyToken = token;
-      spotifyTokenMutex.unlock();
+      xSemaphoreGive(spotifyTokenMutex);
     }
     shouldRefreshToken = false;
   }
 
   uint32_t currentMillis = millis();
 
-  spotifyStateMutex.lock();
+  xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
   int currentVolume = spotifyState.volume_percent;
   String title = spotifyState.title;
   String artist = spotifyState.artist;
   String album = spotifyState.album;
   bool isPlaying = spotifyState.isPlaying;
-  spotifyStateMutex.unlock();
+  xSemaphoreGive(spotifyStateMutex);
 
   for (int i = 0; i < 5; i++){
     int reading = checkButton(i, currentMillis);
@@ -171,9 +176,9 @@ void loop() {
         });
         break;
       case BTN_STATES::CONFIRM:
-        spotifyStateMutex.lock();
+        xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
         spotifyState.isPlaying = !isPlaying;
-        spotifyStateMutex.unlock();
+        xSemaphoreGive(spotifyStateMutex);
         addRequestToPool([=]() {
           if(isPlaying) {
             Spotify::pause(getSpotifyToken());
@@ -183,17 +188,17 @@ void loop() {
         });
         break;
       case BTN_STATES::UP:
-        spotifyStateMutex.lock();
+        xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
         spotifyState.volume_percent = currentVolume + 10;
-        spotifyStateMutex.unlock();
+        xSemaphoreGive(spotifyStateMutex);
         addRequestToPool([=]() {
           Spotify::setVolume(getSpotifyToken(), currentVolume + 10);
         });
         break;
       case BTN_STATES::DOWN:
-        spotifyStateMutex.lock();
+        xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
         spotifyState.volume_percent = currentVolume - 10;
-        spotifyStateMutex.unlock();
+        xSemaphoreGive(spotifyStateMutex);
         addRequestToPool([=]() {
           Spotify::setVolume(getSpotifyToken(), currentVolume - 10);
         });
@@ -259,9 +264,9 @@ void fetchSpotifyState() {
       return;
     }
 
-    spotifyStateMutex.lock();
+    xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
     spotifyState = newSpotifyState;
-    spotifyStateMutex.unlock();
+    xSemaphoreGive(spotifyStateMutex);
   }
 }
 
