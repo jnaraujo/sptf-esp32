@@ -232,9 +232,9 @@ void loop() {
   String pausedTxt = "(-.-) zZ";
   String pad = "=-=-=-=";
   if(shouldBlink) {
-    pad = "-=-=-=-";
     if(isPlaying) {
       playingTxt = "(^O^)_";
+      pad = "-=-=-=-";
     } else {
       pausedTxt = "(-.-) Zz";
     }
