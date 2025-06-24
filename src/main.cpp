@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <array>
+#include <functional>
 #include <WiFi.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -57,12 +58,24 @@ Ticker refreshTokenTicker;
 
 std::mutex spotifyStateMutex;
 PlaybackState spotifyState;
+std::mutex spotifyTokenMutex;
 String spotifyToken = "";
+
+String getSpotifyToken() {
+  std::lock_guard<std::mutex> guard(spotifyTokenMutex);
+  return spotifyToken;
+}
 
 uint32_t debounceDelay = 50;
 std::array<Button, 5> buttons;
 uint32_t lastBlink = millis();
 bool shouldBlink = false;
+
+QueueHandle_t requestPool = xQueueCreate(10, sizeof(std::function<void()>));
+
+void addRequestToPool(std::function<void()> fn) {
+  xQueueSend(requestPool, &fn, portMAX_DELAY);
+}
 
 void setup() {
   Serial.begin(115200);
@@ -133,23 +146,42 @@ void loop() {
       Serial.printf("BTN ID: %d\n", i);
       switch (i) {
       case BTN_STATES::RIGHT:
-        Spotify::next(spotifyToken);
+        addRequestToPool([=]() {
+          Spotify::next(getSpotifyToken());
+        });
         break;
       case BTN_STATES::LEFT:
-        Spotify::previous(spotifyToken);
+        addRequestToPool([=]() {
+          Spotify::previous(getSpotifyToken());
+        });
         break;
       case BTN_STATES::CONFIRM:
-        if(isPlaying) {
-          Spotify::pause(spotifyToken);
-        } else {
-          Spotify::play(spotifyToken);
-        }
+        spotifyStateMutex.lock();
+        spotifyState.isPlaying = !isPlaying;
+        spotifyStateMutex.unlock();
+        addRequestToPool([=]() {
+          if(isPlaying) {
+            Spotify::pause(getSpotifyToken());
+          } else {
+            Spotify::play(getSpotifyToken());
+          }
+        });
         break;
       case BTN_STATES::UP:
-        Spotify::setVolume(spotifyToken, currentVolume + 10);
+        spotifyStateMutex.lock();
+        spotifyState.volume_percent = currentVolume + 10;
+        spotifyStateMutex.unlock();
+        addRequestToPool([=]() {
+          Spotify::setVolume(getSpotifyToken(), currentVolume + 10);
+        });
         break;
       case BTN_STATES::DOWN:
-        Spotify::setVolume(spotifyToken, currentVolume - 10);
+        spotifyStateMutex.lock();
+        spotifyState.volume_percent = currentVolume - 10;
+        spotifyStateMutex.unlock();
+        addRequestToPool([=]() {
+          Spotify::setVolume(getSpotifyToken(), currentVolume - 10);
+        });
         break;
       default:
         break;
@@ -201,16 +233,20 @@ void loop() {
 
 void refreshToken() {
   Serial.println("Refreshing access token");
-  spotifyToken = Spotify::refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
-  if(spotifyToken == "err") {
+  String token = Spotify::refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
+  if(token == "err") {
     Serial.println("Err refreshToken");
+  } else {
+    spotifyTokenMutex.lock();
+    spotifyToken = token;
+    spotifyTokenMutex.unlock();
   }
 }
 
 void fetchSpotifyState() {
-  if(spotifyToken != ""){
+  if(getSpotifyToken() != ""){
     Serial.println("Fetching spotify state");
-    PlaybackState newSpotifyState = Spotify::fetchPlaybackState(spotifyToken);
+    PlaybackState newSpotifyState = Spotify::fetchPlaybackState(getSpotifyToken());
     if(newSpotifyState.title == "err") {
       Serial.println("Err fetchPlaybackState");
       return;
@@ -224,8 +260,28 @@ void fetchSpotifyState() {
 
 void backgroundTask(void *pvParameters) {
   while (true) {
+    uint32_t start = millis();
+
+    UBaseType_t poolSize = uxQueueMessagesWaiting(requestPool);
+    UBaseType_t toProcess = std::min<UBaseType_t>(poolSize, 3);
+
+    std::function<void()> fn;
+    for (UBaseType_t i = 0; i < poolSize; ++i) {
+      if (xQueueReceive(requestPool, &fn, 0) == pdTRUE) {
+        fn();
+      }
+    }
+    uint32_t end = millis();
+
+    uint32_t elapsed = end - start;
+    uint32_t wait = (delayFetchSpotifyState > elapsed) ? (delayFetchSpotifyState - elapsed) : 0;
+    Serial.printf(
+      "Pool Size: %u; Pool Exec: %lu ms; Wait: %lu ms\n",
+      poolSize, elapsed, wait
+    );
+
     fetchSpotifyState();
-    delay(delayFetchSpotifyState);
+    delay(wait);
   }
 }
 
