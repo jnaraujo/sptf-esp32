@@ -71,6 +71,7 @@ uint32_t debounceDelay = 50;
 std::array<Button, 5> buttons;
 uint32_t lastBlink = millis();
 bool shouldBlink = false;
+bool shouldRefreshToken = true;
 
 QueueHandle_t requestPool = xQueueCreate(10, sizeof(std::function<void()>));
 
@@ -128,6 +129,19 @@ void loop() {
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     delay(1000);
     return;
+  }
+
+  if(shouldRefreshToken) {
+    DEBUG_PRINTLN("Refreshing access token");
+    String token = Spotify::refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
+    if(token == "err") {
+      DEBUG_PRINTLN("Err refreshToken");
+    } else {
+      spotifyTokenMutex.lock();
+      spotifyToken = token;
+      spotifyTokenMutex.unlock();
+    }
+    shouldRefreshToken = false;
   }
 
   uint32_t currentMillis = millis();
@@ -233,15 +247,7 @@ void loop() {
 }
 
 void refreshToken() {
-  DEBUG_PRINTLN("Refreshing access token");
-  String token = Spotify::refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
-  if(token == "err") {
-    DEBUG_PRINTLN("Err refreshToken");
-  } else {
-    spotifyTokenMutex.lock();
-    spotifyToken = token;
-    spotifyTokenMutex.unlock();
-  }
+  shouldRefreshToken = true;
 }
 
 void fetchSpotifyState() {
