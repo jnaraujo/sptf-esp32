@@ -162,7 +162,7 @@ void loop() {
   u8g2_for_adafruit_gfx.setFont(u8g2_font_profont17_tf);
   u8g2_for_adafruit_gfx.setCursor(0, 29);
 
-  u8g2_for_adafruit_gfx.print(formatString(title, 2, 14));
+  u8g2_for_adafruit_gfx.print(wordWrap(formatString(title, 2, 14), 14));
 
   u8g2_for_adafruit_gfx.setFont(u8g2_font_profont10_tf);
   u8g2_for_adafruit_gfx.setCursor(0, 64);
