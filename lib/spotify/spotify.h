@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <base64.h>
+#include "debug.h"
 
 struct PlaybackState {
   String title;

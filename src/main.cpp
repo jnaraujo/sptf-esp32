@@ -9,6 +9,7 @@
 #include "secrets.h"
 #include "spotify.h"
 #include <Ticker.h>
+#include "debug.h"
 #include <mutex>
 
 #define delayFetchSpotifyState 1000
@@ -102,11 +103,11 @@ void setup() {
   Serial.println("Connecting to Wi-Fi");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
-    Serial.printf("Status: %s\n", wifiStatusToString(WiFi.status()).c_str());
+    DEBUG_PRINTF("Status: %s\n", wifiStatusToString(WiFi.status()).c_str());
     delay(500);
   }
   Serial.println("Connected.");
-  Serial.printf("IP Addr: %s\n", WiFi.localIP().toString().c_str());
+  DEBUG_PRINTF("IP Addr: %s\n", WiFi.localIP().toString().c_str());
 
   xTaskCreate(
     backgroundTask,
@@ -143,7 +144,7 @@ void loop() {
     int reading = checkButton(i, currentMillis);
 
     if (reading) {
-      Serial.printf("BTN ID: %d\n", i);
+      DEBUG_PRINTF("BTN ID: %d\n", i);
       switch (i) {
       case BTN_STATES::RIGHT:
         addRequestToPool([=]() {
@@ -275,7 +276,7 @@ void backgroundTask(void *pvParameters) {
 
     uint32_t elapsed = end - start;
     uint32_t wait = (delayFetchSpotifyState > elapsed) ? (delayFetchSpotifyState - elapsed) : 0;
-    Serial.printf(
+    DEBUG_PRINTF(
       "Pool Size: %u; Pool Exec: %lu ms; Wait: %lu ms\n",
       poolSize, elapsed, wait
     );

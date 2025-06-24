@@ -36,7 +36,7 @@ String Spotify::refreshToken(String clientID, String clientSecret, String refres
       }
     }
   } else {
-    Serial.printf("Request failed: %d\n", httpCode);
+    DEBUG_PRINTF("Request failed: %d\n", httpCode);
     String payload = http.getString();
     Serial.println("Response:");
     Serial.println(payload);
@@ -64,7 +64,7 @@ PlaybackState Spotify::fetchPlaybackState(String accessToken) {
   http.end();
 
   if(status != 200) {
-    Serial.printf("HTTP Error: %d\n", status);
+    DEBUG_PRINTF("HTTP Error: %d\n", status);
     Serial.println(payload);
     return ps;
   }
@@ -94,7 +94,7 @@ void Spotify::play(String accessToken) {
   http.end();
   
   if(status != 200) {
-    Serial.printf("HTTP Error: %d\n", status);
+    DEBUG_PRINTF("HTTP Error: %d\n", status);
   }
 }
 
@@ -107,7 +107,7 @@ void Spotify::pause(String accessToken) {
   http.end();
   
   if(status != 200) {
-    Serial.printf("HTTP Error: %d\n", status);
+    DEBUG_PRINTF("HTTP Error: %d\n", status);
   }
 }
 
@@ -120,7 +120,7 @@ void Spotify::next(String accessToken) {
   http.end();
   
   if(status != 200) {
-    Serial.printf("HTTP Error: %d\n", status);
+    DEBUG_PRINTF("HTTP Error: %d\n", status);
   }
 }
 
@@ -133,7 +133,7 @@ void Spotify::previous(String accessToken) {
   http.end();
   
   if(status != 200) {
-    Serial.printf("HTTP Error: %d\n", status);
+    DEBUG_PRINTF("HTTP Error: %d\n", status);
   }
 }
 
@@ -148,6 +148,6 @@ void Spotify::setVolume(String accessToken, int volume) {
   http.end();
   
   if(status != 204) {
-    Serial.printf("HTTP Error: %d\n", status);
+    DEBUG_PRINTF("HTTP Error: %d\n", status);
   }
 }
