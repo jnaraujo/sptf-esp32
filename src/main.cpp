@@ -11,13 +11,14 @@
 #include <Ticker.h>
 #include <debug.h>
 
-#define delayFetchSpotifyState 1000
 #define delayRefreshToken 3600
 #define OLED_ADDR 0x3C
 #define SCL 5
 #define SDA 4
 #define DISPLAY_WIDTH 128
 #define DISPLAY_HEIGHT 64
+#define REQUEST_POOL_EXEC_INTERVAL_MS 250
+#define FETCH_SPOTIFY_STATE_INTERVAL_MS 1000
 
 const int BTN_PINS[5] = {
   10, // UP
@@ -73,6 +74,8 @@ std::array<Button, 5> buttons;
 uint32_t lastBlink = millis();
 bool shouldBlink = false;
 bool shouldRefreshToken = true;
+uint32_t lastRequestPoolExecMillis = 0;
+uint32_t lastFetchSpotifyStateMillis = 0;
 
 QueueHandle_t requestPool = xQueueCreate(10, sizeof(std::function<void()>));
 
@@ -269,28 +272,42 @@ void fetchSpotifyState() {
 
 void backgroundTask(void *pvParameters) {
   while (true) {
-    uint32_t start = millis();
+    if((millis() - lastRequestPoolExecMillis) > REQUEST_POOL_EXEC_INTERVAL_MS) {
+      uint32_t start = millis();
 
-    UBaseType_t poolSize = uxQueueMessagesWaiting(requestPool);
-    UBaseType_t toProcess = std::min<UBaseType_t>(poolSize, 3);
+      UBaseType_t poolSize = uxQueueMessagesWaiting(requestPool);
+      UBaseType_t toProcess = std::min<UBaseType_t>(poolSize, 3);
 
-    std::function<void()> fn;
-    for (UBaseType_t i = 0; i < poolSize; ++i) {
-      if (xQueueReceive(requestPool, &fn, 0) == pdTRUE) {
-        fn();
+      std::function<void()> fn;
+      for (UBaseType_t i = 0; i < poolSize; ++i) {
+        if (xQueueReceive(requestPool, &fn, 0) == pdTRUE) {
+          fn();
+        }
       }
+
+      uint32_t end = millis();
+      uint32_t elapsed = end - start;
+      DEBUG_PRINTF(
+        "Pool Size: %u; Pool Exec: %lu ms\n",
+        poolSize, elapsed
+      );
+
+      lastRequestPoolExecMillis = millis();
     }
-    uint32_t end = millis();
 
-    uint32_t elapsed = end - start;
-    uint32_t wait = (delayFetchSpotifyState > elapsed) ? (delayFetchSpotifyState - elapsed) : 0;
-    DEBUG_PRINTF(
-      "Pool Size: %u; Pool Exec: %lu ms; Wait: %lu ms\n",
-      poolSize, elapsed, wait
-    );
+    if((millis() - lastFetchSpotifyStateMillis) > FETCH_SPOTIFY_STATE_INTERVAL_MS) {
+      uint32_t start = millis();
+      fetchSpotifyState();
+      uint32_t end = millis();
+      uint32_t elapsed = end - start;
 
-    fetchSpotifyState();
-    delay(wait);
+      DEBUG_PRINTF(
+        "Fetch Spotify State: %lu ms\n",
+        elapsed
+      );
+
+      lastFetchSpotifyStateMillis = millis();
+    }
   }
 }
 
