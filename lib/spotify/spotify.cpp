@@ -2,14 +2,22 @@
 
 const String SPOTIFY_API_BASE = "https://api.spotify.com";
 
-void setupHTTPClient(HTTPClient& http, String endpoint, String accessToken) {
+void setupHTTPClient(HTTPClient& http, String endpoint, const String& accessToken) {
   http.begin(SPOTIFY_API_BASE + endpoint);
   http.addHeader("Authorization", "Bearer " + accessToken);
   http.setTimeout(1000);
 }
 
+SpotifyClient::SpotifyClient() {
+  this->mutex = xSemaphoreCreateMutex();
+  this->httpClient.setReuse(true);
+}
 
-String Spotify::refreshToken(String clientID, String clientSecret, String refreshToken) {
+SpotifyClient::~SpotifyClient() {
+  vSemaphoreDelete(this->mutex);
+}
+
+void SpotifyClient::refreshToken(const String& clientID, const String& clientSecret, const String& refreshToken) {
   HTTPClient http;
   http.begin("https://accounts.spotify.com/api/token");
 
@@ -24,7 +32,7 @@ String Spotify::refreshToken(String clientID, String clientSecret, String refres
 
   if (httpCode != 200) {
     DEBUG_PRINTF("Request failed: %d\n", httpCode);
-    return "";
+    return;
   }
 
   JsonDocument doc;
@@ -32,28 +40,33 @@ String Spotify::refreshToken(String clientID, String clientSecret, String refres
 
   if (error) {
     DEBUG_PRINTF("Failed to parse JSON: %s\n", error.c_str());
-    return "";
+    return;
   }
 
-  return doc["access_token"].as<String>();
+  xSemaphoreTake(this->mutex, portMAX_DELAY);
+  this->token = doc["access_token"].as<String>();
+  xSemaphoreGive(this->mutex);
 }
 
-PlaybackState Spotify::fetchPlaybackState(String accessToken) {
-  HTTPClient http;
-  setupHTTPClient(http, "/v1/me/player?market=BR", accessToken);
+PlaybackState SpotifyClient::fetchPlaybackState() {
+  xSemaphoreTake(this->mutex, portMAX_DELAY);
+  setupHTTPClient(this->httpClient, "/v1/me/player?market=BR", this->token);
+  int status = this->httpClient.GET();
   
-  int status = http.GET();
-
   PlaybackState ps;
-
+  
   if(status == 204) {
+    this->httpClient.end();
+    xSemaphoreGive(this->mutex);
+
     ps.title = "Not Playing";
     ps.artist = "(o_O)";
     return ps;
   }
 
-  String payload = http.getString();
-  http.end();
+  String payload = this->httpClient.getString();
+  this->httpClient.end();
+  xSemaphoreGive(this->mutex);
 
   if(status != 200) {
     DEBUG_PRINTF("HTTP Error: %d\n", status);
@@ -77,67 +90,72 @@ PlaybackState Spotify::fetchPlaybackState(String accessToken) {
   return ps;
 }
 
-void Spotify::play(String accessToken) {
-  HTTPClient http;
-  setupHTTPClient(http, "/v1/me/player/play", accessToken);
-  http.addHeader("Content-Length", "0");
-
-  int status = http.PUT("");
-  http.end();
+void SpotifyClient::play() {
+  xSemaphoreTake(this->mutex, portMAX_DELAY);
+  setupHTTPClient(this->httpClient, "/v1/me/player/play", this->token);
+  this->httpClient.addHeader("Content-Length", "0");
+  
+  int status = this->httpClient.PUT("");
+  this->httpClient.end();
+  xSemaphoreGive(this->mutex);
   
   if(status != 200) {
     DEBUG_PRINTF("HTTP Error: %d\n", status);
   }
 }
 
-void Spotify::pause(String accessToken) {
-  HTTPClient http;
-  setupHTTPClient(http, "/v1/me/player/pause", accessToken);
-  http.addHeader("Content-Length", "0");
-
-  int status = http.PUT("");
-  http.end();
+void SpotifyClient::pause() {
+  xSemaphoreTake(this->mutex, portMAX_DELAY);
+  setupHTTPClient(this->httpClient, "/v1/me/player/pause", this->token);
+  this->httpClient.addHeader("Content-Length", "0");
+  
+  int status = this->httpClient.PUT("");
+  this->httpClient.end();
+  xSemaphoreGive(this->mutex);
   
   if(status != 200) {
     DEBUG_PRINTF("HTTP Error: %d\n", status);
   }
 }
 
-void Spotify::next(String accessToken) {
-  HTTPClient http;
-  setupHTTPClient(http, "/v1/me/player/next", accessToken);
-  http.addHeader("Content-Length", "0");
-
-  int status = http.POST("");
-  http.end();
+void SpotifyClient::next() {
+  xSemaphoreTake(this->mutex, portMAX_DELAY);
+  setupHTTPClient(this->httpClient, "/v1/me/player/next", this->token);
+  this->httpClient.addHeader("Content-Length", "0");
+  
+  int status = this->httpClient.POST("");
+  this->httpClient.end();
+  xSemaphoreGive(this->mutex);
   
   if(status != 200) {
     DEBUG_PRINTF("HTTP Error: %d\n", status);
   }
 }
 
-void Spotify::previous(String accessToken) {
-  HTTPClient http;
-  setupHTTPClient(http, "/v1/me/player/previous", accessToken);
-  http.addHeader("Content-Length", "0");
-
-  int status = http.POST("");
-  http.end();
+void SpotifyClient::previous() {
+  xSemaphoreTake(this->mutex, portMAX_DELAY);
+  setupHTTPClient(this->httpClient, "/v1/me/player/previous", this->token);
+  this->httpClient.addHeader("Content-Length", "0");
+  
+  int status = this->httpClient.POST("");
+  this->httpClient.end();
+  xSemaphoreGive(this->mutex);
   
   if(status != 200) {
     DEBUG_PRINTF("HTTP Error: %d\n", status);
   }
 }
 
-void Spotify::setVolume(String accessToken, int volume) {
+void SpotifyClient::setVolume(int volume) {
+  xSemaphoreTake(this->mutex, portMAX_DELAY);
   volume = max(0, min(volume, 100));
-
-  HTTPClient http;
-  setupHTTPClient(http, "/v1/me/player/volume?volume_percent=" + String(volume), accessToken);
-  http.addHeader("Content-Length", "0");
   
-  int status = http.PUT("");
-  http.end();
+  setupHTTPClient(this->httpClient, "/v1/me/player/volume?volume_percent=" + String(volume), this->token);
+  this->httpClient.addHeader("Content-Length", "0");
+  
+  int status = this->httpClient.PUT("");
+  this->httpClient.end();
+  xSemaphoreGive(this->mutex);
   
   if(status != 204) {
     DEBUG_PRINTF("HTTP Error: %d\n", status);

@@ -22,13 +22,24 @@ struct PlaybackState {
   }
 };
 
-namespace Spotify {
-  PlaybackState fetchPlaybackState(String accessToken);
-  String refreshToken(String clientID, String clientSecret, String refreshToken);
+class SpotifyClient {
+  public:
+    SpotifyClient();
+    ~SpotifyClient();
 
-  void play(String accessToken);
-  void pause(String accessToken);
-  void next(String accessToken);
-  void previous(String accessToken);
-  void setVolume(String accessToken, int volume);
-}
+    void refreshToken(const String& clientID,
+                      const String& clientSecret,
+                      const String& refreshToken);
+    PlaybackState fetchPlaybackState();
+    void play();
+    void pause();
+    void next();
+    void previous();
+    void setVolume(int volume);
+
+  private:
+    SemaphoreHandle_t mutex;
+    HTTPClient httpClient;
+
+    String token;
+};

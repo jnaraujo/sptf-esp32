@@ -8,10 +8,8 @@
 #include <U8g2_for_Adafruit_GFX.h>
 #include "secrets.h"
 #include <spotify.h>
-#include <Ticker.h>
 #include <debug.h>
 
-#define delayRefreshToken 3600
 #define OLED_ADDR 0x3C
 #define SCL 5
 #define SDA 4
@@ -19,6 +17,7 @@
 #define DISPLAY_HEIGHT 64
 #define REQUEST_POOL_EXEC_INTERVAL_MS 250
 #define FETCH_SPOTIFY_STATE_INTERVAL_MS 1000
+#define REFRESH_TOKEN_INTERVAL_SECS 3600
 
 const int BTN_PINS[5] = {
   10, // UP
@@ -47,7 +46,6 @@ String wordWrap(String s, int limit);
 String formatString(const String& s, int numLines, int maxCharPerLine);
 int checkButton(int index, uint32_t currentMillis);
 void fetchSpotifyState();
-void refreshToken();
 void backgroundTask(void *pvParameters);
 String centerString(const String& text, int totalWidth);
 String wifiStatusToString(wl_status_t status);
@@ -55,27 +53,18 @@ String wifiStatusToString(wl_status_t status);
 Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
 U8G2_FOR_ADAFRUIT_GFX u8g2_for_adafruit_gfx;
 
-Ticker refreshTokenTicker;
+SpotifyClient spotifyClient;
 
 SemaphoreHandle_t spotifyStateMutex;
 PlaybackState spotifyState;
-SemaphoreHandle_t spotifyTokenMutex;
-String spotifyToken = "";
-
-String getSpotifyToken() {
-  xSemaphoreTake(spotifyTokenMutex, portMAX_DELAY);
-  auto tkn = spotifyToken;
-  xSemaphoreGive(spotifyTokenMutex);
-  return tkn;
-}
 
 uint32_t debounceDelay = 50;
 std::array<Button, 5> buttons;
 uint32_t lastBlink = millis();
 bool shouldBlink = false;
-bool shouldRefreshToken = true;
 uint32_t lastRequestPoolExecMillis = 0;
 uint32_t lastFetchSpotifyStateMillis = 0;
+uint32_t lastRefreshTokenMillis = 0;
 
 QueueHandle_t requestPool = xQueueCreate(10, sizeof(std::function<void()>));
 
@@ -87,8 +76,6 @@ void setup() {
   Serial.begin(115200);
 
   spotifyStateMutex = xSemaphoreCreateMutex();
-  spotifyTokenMutex = xSemaphoreCreateMutex();
-
 
   Wire.begin(SDA, SCL);
 
@@ -118,6 +105,8 @@ void setup() {
   DEBUG_PRINTLN("Connected.");
   DEBUG_PRINTF("IP Addr: %s\n", WiFi.localIP().toString().c_str());
 
+  spotifyClient.refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
+
   xTaskCreate(
     backgroundTask,
     "backgroundTask",
@@ -126,9 +115,6 @@ void setup() {
     1,
     NULL
   );
-
-  refreshToken();
-  refreshTokenTicker.attach(delayRefreshToken, refreshToken);
 }
 
 void loop() {
@@ -137,19 +123,6 @@ void loop() {
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     delay(1000);
     return;
-  }
-
-  if(shouldRefreshToken) {
-    DEBUG_PRINTLN("Refreshing access token");
-    String token = Spotify::refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
-    if(token == "err") {
-      DEBUG_PRINTLN("Err refreshToken");
-    } else {
-      xSemaphoreTake(spotifyTokenMutex, portMAX_DELAY);
-      spotifyToken = token;
-      xSemaphoreGive(spotifyTokenMutex);
-    }
-    shouldRefreshToken = false;
   }
 
   uint32_t currentMillis = millis();
@@ -170,20 +143,20 @@ void loop() {
       switch (i) {
       case BTN_STATES::RIGHT:
         addRequestToPool([=]() {
-          Spotify::next(getSpotifyToken());
+          spotifyClient.next();
         });
         break;
       case BTN_STATES::LEFT:
         addRequestToPool([=]() {
-          Spotify::previous(getSpotifyToken());
+          spotifyClient.previous();
         });
         break;
       case BTN_STATES::CONFIRM:
         addRequestToPool([=]() {
           if(isPlaying) {
-            Spotify::pause(getSpotifyToken());
+            spotifyClient.pause();
           } else {
-            Spotify::play(getSpotifyToken());
+            spotifyClient.play();
           }
         });
         break;
@@ -192,7 +165,7 @@ void loop() {
         spotifyState.volume_percent = currentVolume + 10;
         xSemaphoreGive(spotifyStateMutex);
         addRequestToPool([=]() {
-          Spotify::setVolume(getSpotifyToken(), currentVolume + 10);
+          spotifyClient.setVolume(currentVolume + 10);
         });
         break;
       case BTN_STATES::DOWN:
@@ -200,7 +173,7 @@ void loop() {
         spotifyState.volume_percent = currentVolume - 10;
         xSemaphoreGive(spotifyStateMutex);
         addRequestToPool([=]() {
-          Spotify::setVolume(getSpotifyToken(), currentVolume - 10);
+          spotifyClient.setVolume(currentVolume - 10);
         });
         break;
       default:
@@ -251,27 +224,28 @@ void loop() {
   display.display();
 }
 
-void refreshToken() {
-  shouldRefreshToken = true;
-}
-
 void fetchSpotifyState() {
-  if(getSpotifyToken() != ""){
-    DEBUG_PRINTLN("Fetching spotify state");
-    PlaybackState newSpotifyState = Spotify::fetchPlaybackState(getSpotifyToken());
-    if(newSpotifyState.title == "err") {
-      DEBUG_PRINTLN("Err fetchPlaybackState");
-      return;
-    }
-
-    xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
-    spotifyState = newSpotifyState;
-    xSemaphoreGive(spotifyStateMutex);
+  DEBUG_PRINTLN("Fetching spotify state");
+  PlaybackState newSpotifyState = spotifyClient.fetchPlaybackState();
+  if(newSpotifyState.title == "err") {
+    DEBUG_PRINTLN("Err fetchPlaybackState");
+    return;
   }
+
+  xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
+  spotifyState = newSpotifyState;
+  xSemaphoreGive(spotifyStateMutex);
 }
 
 void backgroundTask(void *pvParameters) {
   while (true) {
+    if((millis() - lastRefreshTokenMillis) > REFRESH_TOKEN_INTERVAL_SECS * 1000) {
+      DEBUG_PRINTLN("Refreshing access token");
+      spotifyClient.refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
+      lastRefreshTokenMillis = millis();
+    }
+
+
     if((millis() - lastRequestPoolExecMillis) > REQUEST_POOL_EXEC_INTERVAL_MS) {
       uint32_t start = millis();
 
