@@ -13,7 +13,7 @@ struct PlaybackState {
   bool isPlaying;
   int volume_percent;
 
-   PlaybackState() {
+  PlaybackState() {
     title = "N/A";
     artist = "N/A";
     album = "N/A";
@@ -38,8 +38,10 @@ class SpotifyClient {
     void setVolume(int volume);
 
   private:
-    SemaphoreHandle_t mutex;
     HTTPClient httpClient;
 
     String token;
+    String SPOTIFY_API_BASE = "https://api.spotify.com";
+
+    void prepareRequest(String endpoint);
 };
