@@ -7,8 +7,8 @@
 #include <Adafruit_SSD1306.h>
 #include <U8g2_for_Adafruit_GFX.h>
 #include "secrets.h"
-#include <spotify.h>
-#include <debug.h>
+#include "spotify.h"
+#include "debug.h"
 
 #define OLED_ADDR 0x3C
 #define SCL 5
