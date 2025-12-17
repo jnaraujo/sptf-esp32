@@ -1,8 +1,11 @@
 # 🎵 Spotify ESP32 Controller
 
+
 Control your Spotify playback using physical buttons and an ESP32 over Wi-Fi!
 
 This project uses the [Spotify Web API](https://developer.spotify.com/documentation/web-api/) to send playback commands (play, pause, skip, etc.) from an ESP32 to your active Spotify device.
+
+![Spotify ESP32 Controller](assets/spotify-esp32-controller.png)
 
 ## ✨ Features
 
