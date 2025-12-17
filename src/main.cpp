@@ -107,50 +107,43 @@ void handleButtonPress(ButtonType btn, const PlaybackState& currentState) {
 
 void backgroundTask(void *pvParameters) {
   while (true) {
-    if((millis() - lastRefreshTokenMillis) > REFRESH_TOKEN_INTERVAL_SECS * 1000) {
-      DEBUG_PRINTLN("Refreshing access token");
-      spotifyClient.refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
-      lastRefreshTokenMillis = millis();
-    }
+    long timeUntilFetch = (lastFetchSpotifyStateMillis + FETCH_SPOTIFY_STATE_INTERVAL_MS) - millis();
+    long timeUntilToken = (lastRefreshTokenMillis + REFRESH_TOKEN_INTERVAL_SECS * 1000) - millis();
 
+    if (timeUntilFetch < 0) timeUntilFetch = 0;
+    if (timeUntilToken < 0) timeUntilToken = 0;
 
-    if((millis() - lastRequestPoolExecMillis) > REQUEST_POOL_EXEC_INTERVAL_MS) {
-      uint32_t start = millis();
+    uint32_t timeToWaitMs = std::min(timeUntilFetch, timeUntilToken);
 
-      UBaseType_t poolSize = uxQueueMessagesWaiting(requestPool);
-      UBaseType_t toProcess = std::min<UBaseType_t>(poolSize, 3);
+    std::function<void()>* fnPtr;
 
-      std::function<void()>* fnPtr;
+    if (xQueueReceive(requestPool, &fnPtr, pdMS_TO_TICKS(timeToWaitMs)) == pdTRUE) {
+      DEBUG_PRINTLN("Processing request from pool");
+      if (fnPtr != nullptr) {
+        uint32_t tStart = millis();
+        (*fnPtr)();
+        delete fnPtr;
 
-      for (UBaseType_t i = 0; i < poolSize; ++i) {
-        if (xQueueReceive(requestPool, &fnPtr, 0) == pdTRUE) {
-          (*fnPtr)();
-          delete fnPtr;
-        }
+        DEBUG_PRINTF("Request processed in %lu ms\n", millis() - tStart);
       }
-
-      uint32_t end = millis();
-      uint32_t elapsed = end - start;
-      DEBUG_PRINTF(
-        "Pool Size: %u; Pool Exec: %lu ms\n",
-        poolSize, elapsed
-      );
-
-      lastRequestPoolExecMillis = millis();
     }
 
     if((millis() - lastFetchSpotifyStateMillis) > FETCH_SPOTIFY_STATE_INTERVAL_MS) {
       uint32_t start = millis();
       fetchSpotifyState();
-      uint32_t end = millis();
-      uint32_t elapsed = end - start;
 
       DEBUG_PRINTF(
         "Fetch Spotify State: %lu ms\n",
-        elapsed
+        millis() - start
       );
 
       lastFetchSpotifyStateMillis = millis();
+    }
+
+    if((millis() - lastRefreshTokenMillis) > REFRESH_TOKEN_INTERVAL_SECS * 1000) {
+      DEBUG_PRINTLN("Refreshing access token");
+      spotifyClient.refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
+      lastRefreshTokenMillis = millis();
     }
   }
 }
