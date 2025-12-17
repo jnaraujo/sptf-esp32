@@ -7,6 +7,8 @@ SpotifyClient::~SpotifyClient() {}
 void SpotifyClient::refreshToken(const String& clientID, const String& clientSecret, const String& refreshToken) {
   HTTPClient http;
 
+  http.begin("https://accounts.spotify.com/api/token");
+
   http.addHeader("Authorization",  "Basic " + base64::encode(clientID+":"+clientSecret));
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
 
