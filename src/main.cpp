@@ -1,239 +1,109 @@
 #include <Arduino.h>
-#include <array>
-#include <functional>
 #include <WiFi.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#include <U8g2_for_Adafruit_GFX.h>
+#include "Config.hpp"
 #include "secrets.h"
 #include "spotify.h"
 #include "debug.h"
-#include "StringUtils.hpp"
 #include "NetworkUtils.hpp"
+#include "InputManager.hpp"
+#include "DisplayManager.hpp"
 
-#define OLED_ADDR 0x3C
-#define SCL 5
-#define SDA 4
-#define DISPLAY_WIDTH 128
-#define DISPLAY_HEIGHT 64
-#define REQUEST_POOL_EXEC_INTERVAL_MS 250
-#define FETCH_SPOTIFY_STATE_INTERVAL_MS 1000
-#define REFRESH_TOKEN_INTERVAL_SECS 3600
-
-const int BTN_PINS[5] = {
-  10, // UP
-  11, // DOWN
-  13, // LEFT
-  12, // RIGHT
-  9 // CONFIRM
-};
-
-enum BTN_STATES {
-  UP,
-  DOWN,
-  LEFT,
-  RIGHT,
-  CONFIRM
-};
-
-struct Button {
-  int pin;
-  int state;
-  int lastState;
-  uint32_t lastDebounceTime;
-};
-
-int checkButton(int index, uint32_t currentMillis);
-void fetchSpotifyState();
-void backgroundTask(void *pvParameters);
-
-Adafruit_SSD1306 display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1);
-U8G2_FOR_ADAFRUIT_GFX u8g2_for_adafruit_gfx;
-
+// --- Global Objects ---
 SpotifyClient spotifyClient;
+InputManager inputManager;
+DisplayManager displayManager;
 
+// --- Concurrency ---
 SemaphoreHandle_t spotifyStateMutex;
 PlaybackState spotifyState;
+QueueHandle_t requestPool = xQueueCreate(10, sizeof(std::function<void()>*));
 
-uint32_t debounceDelay = 50;
-std::array<Button, 5> buttons;
-uint32_t lastBlink = millis();
-bool shouldBlink = false;
+// --- Timers ---
 uint32_t lastRequestPoolExecMillis = 0;
 uint32_t lastFetchSpotifyStateMillis = 0;
 uint32_t lastRefreshTokenMillis = 0;
 
-QueueHandle_t requestPool = xQueueCreate(10, sizeof(std::function<void()>));
+// --- Prototypes ---
+void backgroundTask(void *pvParameters);
+void handleButtonPress(ButtonType btn, const PlaybackState& currentState);
+void fetchSpotifyState();
+
 
 void addRequestToPool(std::function<void()> fn) {
-  xQueueSend(requestPool, &fn, portMAX_DELAY);
+  std::function<void()>* fnPtr = new std::function<void()>(fn);
+  
+  if (xQueueSend(requestPool, &fnPtr, portMAX_DELAY) != pdPASS) {
+      delete fnPtr;
+      DEBUG_PRINTLN("Queue full! Request dropped.");
+  }
 }
 
 void setup() {
   Serial.begin(115200);
+  Wire.begin(OLED_SDA, OLED_SCL);
 
+  // Init Modules
+  inputManager.begin();
+  displayManager.begin();
   spotifyStateMutex = xSemaphoreCreateMutex();
-
-  Wire.begin(SDA, SCL);
-
-  display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
-  display.setTextWrap(false);
-  display.setTextColor(SSD1306_WHITE);
-  display.clearDisplay();
-
-  u8g2_for_adafruit_gfx.begin(display);
-  u8g2_for_adafruit_gfx.setFontMode(1);
-  u8g2_for_adafruit_gfx.setFontDirection(0);
-  u8g2_for_adafruit_gfx.setForegroundColor(SSD1306_WHITE);
-
-  display.display();
-
-  for (int i = 0; i < 5; i++){
-    pinMode(BTN_PINS[i], INPUT_PULLUP);
-    buttons[i] = {BTN_PINS[i], HIGH, HIGH, 0};
-  }
 
   DEBUG_PRINTLN("Connecting to Wi-Fi");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
-    DEBUG_PRINTF("Status: %s\n", NetworkUtils::wifiStatusToString(WiFi.status()).c_str());
     delay(500);
   }
   DEBUG_PRINTLN("Connected.");
-  DEBUG_PRINTF("IP Addr: %s\n", WiFi.localIP().toString().c_str());
 
   spotifyClient.refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
 
-  xTaskCreate(
-    backgroundTask,
-    "backgroundTask",
-    10000,
-    NULL,
-    1,
-    NULL
-  );
+  xTaskCreate(backgroundTask, "bgTask", 10000, NULL, 1, NULL);
 }
 
 void loop() {
-  if (WiFi.status() != WL_CONNECTED) {
-    DEBUG_PRINTLN("Reconnecting to WiFi...");
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    delay(1000);
-    return;
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  PlaybackState currentState;
+  if (xSemaphoreTake(spotifyStateMutex, portMAX_DELAY)) {
+      currentState = spotifyState;
+      xSemaphoreGive(spotifyStateMutex);
   }
 
-  uint32_t currentMillis = millis();
-
-  xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
-  int currentVolume = spotifyState.volume_percent;
-  String title = spotifyState.title;
-  String artist = spotifyState.artist;
-  String album = spotifyState.album;
-  bool isPlaying = spotifyState.isPlaying;
-  xSemaphoreGive(spotifyStateMutex);
-
-  for (int i = 0; i < 5; i++){
-    int reading = checkButton(i, currentMillis);
-
-    if (reading) {
-      DEBUG_PRINTF("BTN ID: %d\n", i);
-      switch (i) {
-      case BTN_STATES::RIGHT:
-        addRequestToPool([=]() {
-          spotifyClient.next();
-        });
-        break;
-      case BTN_STATES::LEFT:
-        addRequestToPool([=]() {
-          spotifyClient.previous();
-        });
-        break;
-      case BTN_STATES::CONFIRM:
-        addRequestToPool([=]() {
-          if(isPlaying) {
-            spotifyClient.pause();
-          } else {
-            spotifyClient.play();
-          }
-        });
-        break;
-      case BTN_STATES::UP:
-        xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
-        spotifyState.volume_percent = currentVolume + 10;
-        xSemaphoreGive(spotifyStateMutex);
-        addRequestToPool([=]() {
-          spotifyClient.setVolume(currentVolume + 10);
-        });
-        break;
-      case BTN_STATES::DOWN:
-        xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
-        spotifyState.volume_percent = currentVolume - 10;
-        xSemaphoreGive(spotifyStateMutex);
-        addRequestToPool([=]() {
-          spotifyClient.setVolume(currentVolume - 10);
-        });
-        break;
-      default:
-        break;
-      }
+  for (int i = 0; i < BTN_COUNT; i++) {
+    ButtonType btn = static_cast<ButtonType>(i);
+    if (inputManager.wasPressed(btn)) {
+        handleButtonPress(btn, currentState);
     }
   }
 
-  display.clearDisplay();
+  displayManager.render(currentState);
+}
 
-  u8g2_for_adafruit_gfx.setFont(u8g2_font_profont10_tf);
-  u8g2_for_adafruit_gfx.setCursor(0, 10);
-
-  String line = StringUtils::formatString(artist, 1, 14) + " - " + album;
-  u8g2_for_adafruit_gfx.print(
-    StringUtils::formatString(
-      line,
-    1, 24)
-  );
-
-  u8g2_for_adafruit_gfx.setFont(u8g2_font_profont17_tf);
-  u8g2_for_adafruit_gfx.setCursor(0, 29);
-
-  u8g2_for_adafruit_gfx.print(StringUtils::wordWrap(StringUtils::formatString(title, 2, 14), 14));
-
-  if (currentMillis - lastBlink > 500) {
-    shouldBlink = !shouldBlink;
-    lastBlink = currentMillis;
-  }
-
-  String playingTxt = "(^-^)/";
-  String pausedTxt = "(-.-) zZ";
-  String pad = "=-=-=-=";
-  if(shouldBlink) {
-    if(isPlaying) {
-      playingTxt = "(^O^)_";
-      pad = "-=-=-=-";
-    } else {
-      pausedTxt = "(-.-) Zz";
+void handleButtonPress(ButtonType btn, const PlaybackState& currentState) {
+    DEBUG_PRINTF("BTN ID: %d\n", btn);
+    
+    switch (btn) {
+      case BTN_RIGHT:
+        addRequestToPool([=]() { spotifyClient.next(); });
+        break;
+      case BTN_LEFT:
+        addRequestToPool([=]() { spotifyClient.previous(); });
+        break;
+      case BTN_CONFIRM:
+        addRequestToPool([=]() { 
+            currentState.isPlaying ? spotifyClient.pause() : spotifyClient.play(); 
+        });
+        break;
+      case BTN_UP:
+        addRequestToPool([=]() { spotifyClient.setVolume(currentState.volume_percent + 10); });
+        break;
+      case BTN_DOWN:
+        addRequestToPool([=]() { spotifyClient.setVolume(currentState.volume_percent - 10); });
+        break;
+      default: break;
     }
-  }
-
-  u8g2_for_adafruit_gfx.setFont(u8g2_font_profont10_tf);
-  u8g2_for_adafruit_gfx.setCursor(0, 60);
-  u8g2_for_adafruit_gfx.printf("%s %s %s", pad.c_str(), StringUtils::centerString(isPlaying ? playingTxt : pausedTxt, 10).c_str(), pad.c_str());
-
-
-  display.display();
 }
 
-void fetchSpotifyState() {
-  DEBUG_PRINTLN("Fetching spotify state");
-  PlaybackState newSpotifyState = spotifyClient.fetchPlaybackState();
-  if(newSpotifyState.title == "err") {
-    DEBUG_PRINTLN("Err fetchPlaybackState");
-    return;
-  }
-
-  xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
-  spotifyState = newSpotifyState;
-  xSemaphoreGive(spotifyStateMutex);
-}
 
 void backgroundTask(void *pvParameters) {
   while (true) {
@@ -250,10 +120,12 @@ void backgroundTask(void *pvParameters) {
       UBaseType_t poolSize = uxQueueMessagesWaiting(requestPool);
       UBaseType_t toProcess = std::min<UBaseType_t>(poolSize, 3);
 
-      std::function<void()> fn;
+      std::function<void()>* fnPtr;
+
       for (UBaseType_t i = 0; i < poolSize; ++i) {
-        if (xQueueReceive(requestPool, &fn, 0) == pdTRUE) {
-          fn();
+        if (xQueueReceive(requestPool, &fnPtr, 0) == pdTRUE) {
+          (*fnPtr)();
+          delete fnPtr;
         }
       }
 
@@ -283,23 +155,15 @@ void backgroundTask(void *pvParameters) {
   }
 }
 
-int checkButton(int index, uint32_t currentMillis) {
-  Button *btn = &buttons.at(index);
-  int reading = digitalRead(btn->pin);
-
-  if (reading != btn->lastState) {
-    btn->lastDebounceTime = currentMillis;
+void fetchSpotifyState() {
+  DEBUG_PRINTLN("Fetching spotify state");
+  PlaybackState newSpotifyState = spotifyClient.fetchPlaybackState();
+  if(newSpotifyState.title == "err") {
+    DEBUG_PRINTLN("Err fetchPlaybackState");
+    return;
   }
 
-  if ((currentMillis - btn->lastDebounceTime) > debounceDelay) {
-    if (reading == LOW && btn->state == HIGH) {
-      btn->state = LOW;
-      return 1;  // Button was pressed
-    } else if (reading == HIGH && btn->state == LOW) {
-      btn->state = HIGH;
-    }
-  }
-
-  btn->lastState = reading;
-  return 0;  // No button press detected
+  xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
+  spotifyState = newSpotifyState;
+  xSemaphoreGive(spotifyStateMutex);
 }
