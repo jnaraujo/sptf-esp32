@@ -72,6 +72,8 @@ PlaybackState SpotifyClient::fetchPlaybackState() {
   ps.album = doc["item"]["album"]["name"].as<String>();
   ps.isPlaying = doc["is_playing"].as<bool>();
   ps.volume_percent = doc["device"]["volume_percent"].as<int>();
+  ps.progress_ms = doc["progress_ms"].as<int>();
+  ps.duration_ms = doc["item"]["duration_ms"].as<int>();
   return ps;
 }
 

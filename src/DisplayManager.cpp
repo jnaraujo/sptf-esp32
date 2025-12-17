@@ -1,13 +1,13 @@
 #include "DisplayManager.hpp"
-
-#include "DisplayManager.hpp"
 #include "StringUtils.hpp"
 
 DisplayManager::DisplayManager() 
     : display(DISPLAY_WIDTH, DISPLAY_HEIGHT, &Wire, -1) {}
 
 void DisplayManager::begin() {
-    display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
+    if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
+        return;
+    }
     display.clearDisplay();
     
     u8g2.begin(display);
@@ -30,30 +30,31 @@ void DisplayManager::render(const PlaybackState& state) {
     u8g2.setCursor(0, 29);
     u8g2.print(StringUtils::wordWrap(StringUtils::formatString(state.title, 2, 14), 14));
 
-    drawBlinkFace(state.isPlaying);
+    drawPlayerStatus(state.isPlaying);
+    drawProgressBar(state.progress_ms, state.duration_ms);
 
     display.display();
 }
 
-void DisplayManager::drawBlinkFace(bool isPlaying) {
+void DisplayManager::drawPlayerStatus(bool isPlaying) {
     if (millis() - lastBlinkTime > 500) {
         shouldBlink = !shouldBlink;
         lastBlinkTime = millis();
     }
 
     String face = isPlaying ? "(^-^)/" : "(-.-) zZ";
-    String pad = "=-=-=-=";
-
     if (shouldBlink) {
-        if (isPlaying) {
-            face = "(^O^)_";
-            pad = "-=-=-=-";
-        } else {
-            face = "(-.-) Zz";
-        }
+        face = isPlaying ? "(^O^)_" : "(-.-) Zz";
     }
     
     u8g2.setFont(u8g2_font_profont10_tf);
-    u8g2.setCursor(0, 60);
-    u8g2.printf("%s %s %s", pad.c_str(), StringUtils::centerString(face, 10).c_str(), pad.c_str());
+    u8g2.setCursor(0, 58);
+    u8g2.print(StringUtils::centerString(face, 24).c_str());
+}
+
+void DisplayManager::drawProgressBar(int progress_ms, int duration_ms) {
+    if (duration_ms > 0) {
+        int width = map(progress_ms, 0, duration_ms, 0, DISPLAY_WIDTH);
+        display.fillRect(0, DISPLAY_HEIGHT-1, width, 1, SSD1306_WHITE);
+    }
 }

@@ -12,6 +12,8 @@ struct PlaybackState {
   String album;
   bool isPlaying;
   int volume_percent;
+  int progress_ms;
+  int duration_ms;
 
   PlaybackState() {
     title = "N/A";
@@ -19,6 +21,8 @@ struct PlaybackState {
     album = "N/A";
     isPlaying = false;
     volume_percent = 0;
+    progress_ms = 0;
+    duration_ms = 0;
   }
 };
 

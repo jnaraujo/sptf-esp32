@@ -16,7 +16,8 @@ private:
     U8G2_FOR_ADAFRUIT_GFX u8g2;
     
     // Internal helpers
-    void drawBlinkFace(bool isPlaying);
+    void drawPlayerStatus(bool isPlaying);
+    void drawProgressBar(int progress_ms, int duration_ms);
     bool shouldBlink = false;
     uint32_t lastBlinkTime = 0;
 };
