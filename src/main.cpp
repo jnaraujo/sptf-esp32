@@ -17,7 +17,7 @@ DisplayManager displayManager;
 // --- Concurrency ---
 SemaphoreHandle_t spotifyStateMutex;
 PlaybackState spotifyState;
-QueueHandle_t requestPool = xQueueCreate(10, sizeof(std::function<void()>*));
+QueueHandle_t requestPool = xQueueCreate(4, sizeof(std::function<void()>*));
 
 // --- Timers ---
 uint32_t lastRequestPoolExecMillis = 0;
@@ -30,11 +30,10 @@ void handleButtonPress(ButtonType btn, const PlaybackState& currentState);
 void fetchSpotifyState();
 
 
-void addRequestToPool(std::function<void()> fn) {
-  std::function<void()>* fnPtr = new std::function<void()>(fn);
-  
-  if (xQueueSend(requestPool, &fnPtr, portMAX_DELAY) != pdPASS) {
-      delete fnPtr;
+void addRequestToPool(std::function<void()> func) {
+  auto* funcPtr = new std::function<void()>(func);
+
+  if (xQueueSend(requestPool, &funcPtr, portMAX_DELAY) != pdPASS) {
       DEBUG_PRINTLN("Queue full! Request dropped.");
   }
 }
@@ -115,14 +114,14 @@ void backgroundTask(void *pvParameters) {
 
     uint32_t timeToWaitMs = std::min(timeUntilFetch, timeUntilToken);
 
-    std::function<void()>* fnPtr;
+    std::function<void()>* receivedFn;
 
-    if (xQueueReceive(requestPool, &fnPtr, pdMS_TO_TICKS(timeToWaitMs)) == pdTRUE) {
+    if (xQueueReceive(requestPool, &receivedFn, pdMS_TO_TICKS(timeToWaitMs)) == pdTRUE) {
       DEBUG_PRINTLN("Processing request from pool");
-      if (fnPtr != nullptr) {
+      if (receivedFn) {
         uint32_t tStart = millis();
-        (*fnPtr)();
-        delete fnPtr;
+        (*receivedFn)();
+        delete receivedFn;
 
         DEBUG_PRINTF("Request processed in %lu ms\n", millis() - tStart);
       }
