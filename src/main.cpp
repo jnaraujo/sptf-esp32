@@ -9,6 +9,21 @@
 #include "InputManager.hpp"
 #include "DisplayManager.hpp"
 
+// Type definitions
+enum class SpotifyCmd {
+    NONE,
+    NEXT,
+    PREVIOUS,
+    PLAY,
+    PAUSE,
+    SET_VOLUME
+};
+
+struct SpotifyRequest {
+    SpotifyCmd cmd;
+    int value;
+};
+
 // --- Global Objects ---
 SpotifyClient spotifyClient;
 InputManager inputManager;
@@ -17,7 +32,7 @@ DisplayManager displayManager;
 // --- Concurrency ---
 SemaphoreHandle_t spotifyStateMutex;
 PlaybackState spotifyState;
-QueueHandle_t requestPool = xQueueCreate(4, sizeof(std::function<void()>*));
+QueueHandle_t requestPool = xQueueCreate(6, sizeof(SpotifyRequest));
 
 // --- Timers ---
 uint32_t lastRequestPoolExecMillis = 0;
@@ -30,13 +45,11 @@ void handleButtonPress(ButtonType btn, const PlaybackState& currentState);
 void fetchSpotifyState();
 
 
-void addRequestToPool(std::function<void()> func) {
-  auto* funcPtr = new std::function<void()>(func);
-
-  if (xQueueSend(requestPool, &funcPtr, portMAX_DELAY) != pdPASS) {
-    delete funcPtr;
-    DEBUG_PRINTLN("Queue full! Request dropped.");
-  }
+void addRequestToPool(SpotifyCmd cmd, int value = 0) {
+    SpotifyRequest req;
+    req.cmd = cmd;
+    req.value = value;
+    xQueueSend(requestPool, &req, portMAX_DELAY);
 }
 
 void setup() {
@@ -81,26 +94,14 @@ void loop() {
 
 void handleButtonPress(ButtonType btn, const PlaybackState& currentState) {
     DEBUG_PRINTF("BTN ID: %d\n", btn);
-    
+
     switch (btn) {
-      case BTN_RIGHT:
-        addRequestToPool([=]() { spotifyClient.next(); });
-        break;
-      case BTN_LEFT:
-        addRequestToPool([=]() { spotifyClient.previous(); });
-        break;
-      case BTN_CONFIRM:
-        addRequestToPool([=]() { 
-            currentState.isPlaying ? spotifyClient.pause() : spotifyClient.play(); 
-        });
-        break;
-      case BTN_UP:
-        addRequestToPool([=]() { spotifyClient.setVolume(currentState.volume_percent + 10); });
-        break;
-      case BTN_DOWN:
-        addRequestToPool([=]() { spotifyClient.setVolume(currentState.volume_percent - 10); });
-        break;
-      default: break;
+        case BTN_RIGHT:   addRequestToPool(SpotifyCmd::NEXT); break;
+        case BTN_LEFT:    addRequestToPool(SpotifyCmd::PREVIOUS); break;
+        case BTN_CONFIRM: addRequestToPool(currentState.isPlaying ? SpotifyCmd::PAUSE : SpotifyCmd::PLAY); break;
+        case BTN_UP:      addRequestToPool(SpotifyCmd::SET_VOLUME, currentState.volume_percent + 10); break;
+        case BTN_DOWN:    addRequestToPool(SpotifyCmd::SET_VOLUME, currentState.volume_percent - 10); break;
+        default: break;
     }
 }
 
@@ -115,17 +116,19 @@ void backgroundTask(void *pvParameters) {
 
     uint32_t timeToWaitMs = std::min(timeUntilFetch, timeUntilToken);
 
-    std::function<void()>* receivedFn;
-
-    if (xQueueReceive(requestPool, &receivedFn, pdMS_TO_TICKS(timeToWaitMs)) == pdTRUE) {
+    SpotifyRequest req;
+    if (xQueueReceive(requestPool, &req, pdMS_TO_TICKS(timeToWaitMs)) == pdTRUE) {
       DEBUG_PRINTLN("Processing request from pool");
-      if (receivedFn) {
-        uint32_t tStart = millis();
-        (*receivedFn)();
-        delete receivedFn;
-
-        DEBUG_PRINTF("Request processed in %lu ms\n", millis() - tStart);
+      uint32_t tStart = millis();
+      switch (req.cmd) {
+        case SpotifyCmd::NEXT:       spotifyClient.next(); break;
+        case SpotifyCmd::PREVIOUS:   spotifyClient.previous(); break;
+        case SpotifyCmd::PLAY:       spotifyClient.play(); break;
+        case SpotifyCmd::PAUSE:      spotifyClient.pause(); break;
+        case SpotifyCmd::SET_VOLUME: spotifyClient.setVolume(req.value); break;
+        default: break;
       }
+      DEBUG_PRINTF("Request processed in %lu ms\n", millis() - tStart);
     }
 
     if((millis() - lastFetchSpotifyStateMillis) > FETCH_SPOTIFY_STATE_INTERVAL_MS) {
