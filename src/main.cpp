@@ -34,7 +34,8 @@ void addRequestToPool(std::function<void()> func) {
   auto* funcPtr = new std::function<void()>(func);
 
   if (xQueueSend(requestPool, &funcPtr, portMAX_DELAY) != pdPASS) {
-      DEBUG_PRINTLN("Queue full! Request dropped.");
+    delete funcPtr;
+    DEBUG_PRINTLN("Queue full! Request dropped.");
   }
 }
 
