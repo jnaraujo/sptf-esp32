@@ -24,7 +24,7 @@ void SpotifyClient::refreshToken(const String& clientID, const String& clientSec
 		return;
 	}
 
-	JsonDocument doc(2000);
+	JsonDocument doc;
 	DeserializationError error = deserializeJson(doc, payload);
 
 	if (error) {

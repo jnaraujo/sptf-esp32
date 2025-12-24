@@ -10,13 +10,16 @@ auto centerString(const String& text, int totalWidth) -> String {
 	int totalPadding = totalWidth - textLen;
 	int leftPadding = totalPadding / 2;
 	int rightPadding = totalPadding - leftPadding;
+
 	String paddedString = "";
+	paddedString.reserve(totalWidth);
+
 	for (int i = 0; i < leftPadding; i++) {
 		paddedString += " ";
 	}
 	paddedString += text;
 	for (int i = 0; i < rightPadding; i++) {
-		paddedString += " ";
+		paddedString += ' ';
 	}
 	return paddedString;
 }
@@ -38,22 +41,24 @@ auto formatString(const String& s, int numLines, int maxCharPerLine) -> String {
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-auto wordWrap(String& s, int limit) -> String {
+auto wordWrap(const String& s, int limit) -> String {
+	String str = s;
+
 	int space = 0;
 	int index = 0;
 	int line = 0;
-	while (index < s.length()) {
-		if (s.substring(index, index + 1) == " ") {
+	while (index < str.length()) {
+		if (str.substring(index, index + 1) == " ") {
 			space = index;
 		}
 		if (line > limit - 1) {
-			s = s.substring(0, space) + "~" + s.substring(space + 1);
+			str = str.substring(0, space) + "~" + str.substring(space + 1);
 			line = 0;
 		}
 		index++;
 		line++;
 	}
-	s.replace("~", "\n");
-	return s;
+	str.replace("~", "\n");
+	return str;
 }
 }  // namespace StringUtils
