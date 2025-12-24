@@ -9,7 +9,7 @@ auto InputManager::begin() -> void {
 }
 
 auto InputManager::wasPressed(Config::ButtonType index) -> bool {
-    ButtonState &btn = this->buttons.at(index);
+    ButtonState& btn = this->buttons.at(index);
     int reading = digitalRead(btn.pin);
     bool pressed = false;
     uint32_t currentMillis = millis();
@@ -21,7 +21,7 @@ auto InputManager::wasPressed(Config::ButtonType index) -> bool {
     if ((currentMillis - btn.lastDebounceTime) > Config::DEBOUNCE_DELAY_MS) {
         if (reading == LOW && btn.state == HIGH) {
             btn.state = LOW;
-            pressed = true; 
+            pressed = true;
         } else if (reading == HIGH && btn.state == LOW) {
             btn.state = HIGH;
         }
