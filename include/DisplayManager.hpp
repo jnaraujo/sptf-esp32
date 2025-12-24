@@ -7,7 +7,7 @@
 #include "spotify.h"
 
 class DisplayManager {
-   private:
+private:
 	Adafruit_SSD1306 display{Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT, &Wire, -1};
 	U8G2_FOR_ADAFRUIT_GFX u8g2;
 
@@ -32,7 +32,7 @@ class DisplayManager {
 	bool shouldBlink = false;
 	uint32_t lastBlinkTime = 0;
 
-   public:
+public:
 	DisplayManager() = default;
 	void begin();
 	void render(const PlaybackState& state);

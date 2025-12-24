@@ -27,7 +27,7 @@ struct PlaybackState {
 };
 
 class SpotifyClient {
-   public:
+public:
 	SpotifyClient();
 	~SpotifyClient();
 
@@ -39,7 +39,7 @@ class SpotifyClient {
 	void previous();
 	void setVolume(int volume);
 
-   private:
+private:
 	HTTPClient httpClient;
 
 	String token;

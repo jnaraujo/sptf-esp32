@@ -14,10 +14,10 @@ struct ButtonState {
 };
 
 class InputManager {
-   private:
+private:
 	std::array<ButtonState, Config::BTN_COUNT> buttons;
 
-   public:
+public:
 	auto begin() -> void;
 	auto wasPressed(Config::ButtonType btnIndex) -> bool;
 };
