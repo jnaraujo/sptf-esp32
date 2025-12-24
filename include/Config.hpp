@@ -26,10 +26,10 @@ enum ButtonType { BTN_UP = 0, BTN_DOWN, BTN_LEFT, BTN_RIGHT, BTN_CONFIRM };
 constexpr uint8_t BTN_COUNT = 5;
 
 constexpr std::array<uint8_t, BTN_COUNT> BTN_PINS = {
-    10,  // UP
-    11,  // DOWN
-    13,  // LEFT
-    12,  // RIGHT
-    9    // CONFIRM
+	10,	 // UP
+	11,	 // DOWN
+	13,	 // LEFT
+	12,	 // RIGHT
+	9	 // CONFIRM
 };
 }  // namespace Config

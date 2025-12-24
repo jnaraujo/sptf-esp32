@@ -14,8 +14,8 @@
 enum class SpotifyCmd { NONE, NEXT, PREVIOUS, PLAY, PAUSE, SET_VOLUME };
 
 struct SpotifyRequest {
-    SpotifyCmd cmd;
-    int value;
+	SpotifyCmd cmd;
+	int value;
 };
 
 // --- Global Objects ---
@@ -39,147 +39,147 @@ void handleButtonPress(Config::ButtonType btn, const PlaybackState& currentState
 void fetchSpotifyState();
 
 void addRequestToPool(SpotifyCmd cmd, int value = 0) {
-    SpotifyRequest req;
-    req.cmd = cmd;
-    req.value = value;
-    xQueueSend(requestPool, &req, portMAX_DELAY);
+	SpotifyRequest req;
+	req.cmd = cmd;
+	req.value = value;
+	xQueueSend(requestPool, &req, portMAX_DELAY);
 }
 
 void setup() {
-    Serial.begin(115200);
-    Wire.begin(Config::PIN_OLED_SDA, Config::PIN_OLED_SCL);
+	Serial.begin(115200);
+	Wire.begin(Config::PIN_OLED_SDA, Config::PIN_OLED_SCL);
 
-    // Init Modules
-    inputManager.begin();
-    displayManager.begin();
-    spotifyStateMutex = xSemaphoreCreateMutex();
+	// Init Modules
+	inputManager.begin();
+	displayManager.begin();
+	spotifyStateMutex = xSemaphoreCreateMutex();
 
-    DEBUG_PRINTLN("Connecting to Wi-Fi");
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(Config::WIFI_RECONNECT_INTERVAL_MS);
-    }
-    DEBUG_PRINTLN("Connected.");
+	DEBUG_PRINTLN("Connecting to Wi-Fi");
+	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+	while (WiFi.status() != WL_CONNECTED) {
+		delay(Config::WIFI_RECONNECT_INTERVAL_MS);
+	}
+	DEBUG_PRINTLN("Connected.");
 
-    spotifyClient.refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
+	spotifyClient.refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
 
-    xTaskCreate(backgroundTask, "bgTask", 10000, NULL, 1, NULL);
+	xTaskCreate(backgroundTask, "bgTask", 10000, NULL, 1, NULL);
 }
 
 void loop() {
-    if (WiFi.status() != WL_CONNECTED) {
-        return;
-    }
+	if (WiFi.status() != WL_CONNECTED) {
+		return;
+	}
 
-    PlaybackState currentState;
-    if (xSemaphoreTake(spotifyStateMutex, portMAX_DELAY)) {
-        currentState = spotifyState;
-        xSemaphoreGive(spotifyStateMutex);
-    }
+	PlaybackState currentState;
+	if (xSemaphoreTake(spotifyStateMutex, portMAX_DELAY)) {
+		currentState = spotifyState;
+		xSemaphoreGive(spotifyStateMutex);
+	}
 
-    for (int i = 0; i < Config::BTN_COUNT; i++) {
-        auto btn = static_cast<Config::ButtonType>(i);
-        if (inputManager.wasPressed(btn)) {
-            handleButtonPress(btn, currentState);
-        }
-    }
+	for (int i = 0; i < Config::BTN_COUNT; i++) {
+		auto btn = static_cast<Config::ButtonType>(i);
+		if (inputManager.wasPressed(btn)) {
+			handleButtonPress(btn, currentState);
+		}
+	}
 
-    displayManager.render(currentState);
+	displayManager.render(currentState);
 }
 
 void handleButtonPress(Config::ButtonType btn, const PlaybackState& currentState) {
-    DEBUG_PRINTF("BTN ID: %d\n", btn);
+	DEBUG_PRINTF("BTN ID: %d\n", btn);
 
-    constexpr int VOL_STEP = 10;
+	constexpr int VOL_STEP = 10;
 
-    switch (btn) {
-        case Config::ButtonType::BTN_RIGHT:
-            addRequestToPool(SpotifyCmd::NEXT);
-            break;
-        case Config::ButtonType::BTN_LEFT:
-            addRequestToPool(SpotifyCmd::PREVIOUS);
-            break;
-        case Config::ButtonType::BTN_CONFIRM:
-            addRequestToPool(currentState.isPlaying ? SpotifyCmd::PAUSE : SpotifyCmd::PLAY);
-            break;
-        case Config::ButtonType::BTN_UP:
-            addRequestToPool(SpotifyCmd::SET_VOLUME, currentState.volume_percent + VOL_STEP);
-            break;
-        case Config::ButtonType::BTN_DOWN:
-            addRequestToPool(SpotifyCmd::SET_VOLUME, currentState.volume_percent - VOL_STEP);
-            break;
-        default:
-            break;
-    }
+	switch (btn) {
+		case Config::ButtonType::BTN_RIGHT:
+			addRequestToPool(SpotifyCmd::NEXT);
+			break;
+		case Config::ButtonType::BTN_LEFT:
+			addRequestToPool(SpotifyCmd::PREVIOUS);
+			break;
+		case Config::ButtonType::BTN_CONFIRM:
+			addRequestToPool(currentState.isPlaying ? SpotifyCmd::PAUSE : SpotifyCmd::PLAY);
+			break;
+		case Config::ButtonType::BTN_UP:
+			addRequestToPool(SpotifyCmd::SET_VOLUME, currentState.volume_percent + VOL_STEP);
+			break;
+		case Config::ButtonType::BTN_DOWN:
+			addRequestToPool(SpotifyCmd::SET_VOLUME, currentState.volume_percent - VOL_STEP);
+			break;
+		default:
+			break;
+	}
 }
 
 void backgroundTask(void* pvParameters) {
-    constexpr uint32_t SECS_TO_MS = 1000;
-    while (true) {
-        long timeUntilFetch = (lastFetchSpotifyStateMillis + Config::FETCH_SPOTIFY_STATE_INTERVAL_MS) - millis();
-        long timeUntilToken = (lastRefreshTokenMillis + Config::REFRESH_TOKEN_INTERVAL_SECS * SECS_TO_MS) - millis();
+	constexpr uint32_t SECS_TO_MS = 1000;
+	while (true) {
+		long timeUntilFetch = (lastFetchSpotifyStateMillis + Config::FETCH_SPOTIFY_STATE_INTERVAL_MS) - millis();
+		long timeUntilToken = (lastRefreshTokenMillis + Config::REFRESH_TOKEN_INTERVAL_SECS * SECS_TO_MS) - millis();
 
-        if (timeUntilFetch < 0) {
-            timeUntilFetch = 0;
-        }
-        if (timeUntilToken < 0) {
-            timeUntilToken = 0;
-        }
+		if (timeUntilFetch < 0) {
+			timeUntilFetch = 0;
+		}
+		if (timeUntilToken < 0) {
+			timeUntilToken = 0;
+		}
 
-        uint32_t timeToWaitMs = std::min(timeUntilFetch, timeUntilToken);
+		uint32_t timeToWaitMs = std::min(timeUntilFetch, timeUntilToken);
 
-        SpotifyRequest req;
-        if (xQueueReceive(requestPool, &req, pdMS_TO_TICKS(timeToWaitMs)) == pdTRUE) {
-            DEBUG_PRINTLN("Processing request from pool");
-            uint32_t tStart = millis();
-            switch (req.cmd) {
-                case SpotifyCmd::NEXT:
-                    spotifyClient.next();
-                    break;
-                case SpotifyCmd::PREVIOUS:
-                    spotifyClient.previous();
-                    break;
-                case SpotifyCmd::PLAY:
-                    spotifyClient.play();
-                    break;
-                case SpotifyCmd::PAUSE:
-                    spotifyClient.pause();
-                    break;
-                case SpotifyCmd::SET_VOLUME:
-                    spotifyClient.setVolume(req.value);
-                    break;
-                default:
-                    break;
-            }
-            DEBUG_PRINTF("Request processed in %lu ms\n", millis() - tStart);
-        }
+		SpotifyRequest req;
+		if (xQueueReceive(requestPool, &req, pdMS_TO_TICKS(timeToWaitMs)) == pdTRUE) {
+			DEBUG_PRINTLN("Processing request from pool");
+			uint32_t tStart = millis();
+			switch (req.cmd) {
+				case SpotifyCmd::NEXT:
+					spotifyClient.next();
+					break;
+				case SpotifyCmd::PREVIOUS:
+					spotifyClient.previous();
+					break;
+				case SpotifyCmd::PLAY:
+					spotifyClient.play();
+					break;
+				case SpotifyCmd::PAUSE:
+					spotifyClient.pause();
+					break;
+				case SpotifyCmd::SET_VOLUME:
+					spotifyClient.setVolume(req.value);
+					break;
+				default:
+					break;
+			}
+			DEBUG_PRINTF("Request processed in %lu ms\n", millis() - tStart);
+		}
 
-        if ((millis() - lastFetchSpotifyStateMillis) > Config::FETCH_SPOTIFY_STATE_INTERVAL_MS) {
-            uint32_t start = millis();
-            fetchSpotifyState();
+		if ((millis() - lastFetchSpotifyStateMillis) > Config::FETCH_SPOTIFY_STATE_INTERVAL_MS) {
+			uint32_t start = millis();
+			fetchSpotifyState();
 
-            DEBUG_PRINTF("Fetch Spotify State: %lu ms\n", millis() - start);
+			DEBUG_PRINTF("Fetch Spotify State: %lu ms\n", millis() - start);
 
-            lastFetchSpotifyStateMillis = millis();
-        }
+			lastFetchSpotifyStateMillis = millis();
+		}
 
-        if ((millis() - lastRefreshTokenMillis) > Config::REFRESH_TOKEN_INTERVAL_SECS * SECS_TO_MS) {
-            DEBUG_PRINTLN("Refreshing access token");
-            spotifyClient.refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
-            lastRefreshTokenMillis = millis();
-        }
-    }
+		if ((millis() - lastRefreshTokenMillis) > Config::REFRESH_TOKEN_INTERVAL_SECS * SECS_TO_MS) {
+			DEBUG_PRINTLN("Refreshing access token");
+			spotifyClient.refreshToken(SPTF_CLIENT_ID, SPTF_CLIENT_SECRET, SPTF_REFRESH_TOKEN);
+			lastRefreshTokenMillis = millis();
+		}
+	}
 }
 
 void fetchSpotifyState() {
-    DEBUG_PRINTLN("Fetching spotify state");
-    PlaybackState newSpotifyState = spotifyClient.fetchPlaybackState();
-    if (newSpotifyState.title == "err") {
-        DEBUG_PRINTLN("Err fetchPlaybackState");
-        return;
-    }
+	DEBUG_PRINTLN("Fetching spotify state");
+	PlaybackState newSpotifyState = spotifyClient.fetchPlaybackState();
+	if (newSpotifyState.title == "err") {
+		DEBUG_PRINTLN("Err fetchPlaybackState");
+		return;
+	}
 
-    xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
-    spotifyState = newSpotifyState;
-    xSemaphoreGive(spotifyStateMutex);
+	xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
+	spotifyState = newSpotifyState;
+	xSemaphoreGive(spotifyStateMutex);
 }
