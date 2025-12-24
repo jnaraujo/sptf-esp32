@@ -3,9 +3,9 @@
 #include <Arduino.h>
 
 namespace StringUtils {
-  String centerString(const String& text, int totalWidth);
+  auto centerString(const String& text, int totalWidth) -> String;
 
-  String formatString(const String& s, int numLines, int maxCharPerLine);
+  auto formatString(const String& s, int numLines, int maxCharPerLine) -> String;
 
-  String wordWrap(String s, int limit);
+  auto wordWrap(String s, int limit) -> String;
 }

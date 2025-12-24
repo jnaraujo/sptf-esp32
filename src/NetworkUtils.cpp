@@ -1,7 +1,7 @@
 #include "NetworkUtils.hpp"
 
 namespace NetworkUtils {
-  String wifiStatusToString(wl_status_t status) {
+  auto wifiStatusToString(wl_status_t status) -> String {
     switch (status) {
       case WL_NO_SHIELD:
         return "No WiFi shield is present";

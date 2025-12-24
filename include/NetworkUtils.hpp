@@ -4,5 +4,5 @@
 #include <WiFi.h>
 
 namespace NetworkUtils {
-  String wifiStatusToString(wl_status_t status);
+  auto wifiStatusToString(wl_status_t status) -> String;
 }

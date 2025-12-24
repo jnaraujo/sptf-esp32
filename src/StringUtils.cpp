@@ -2,7 +2,8 @@
 
 
 namespace StringUtils {
-  String centerString(const String& text, int totalWidth) {
+  // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+  auto centerString(const String& text, int totalWidth) -> String {
     int textLen = text.length();
     if (textLen >= totalWidth) {
       return text;
@@ -21,7 +22,8 @@ namespace StringUtils {
     return paddedString;
   }
 
-  String formatString(const String& s, int numLines, int maxCharPerLine) {
+  // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+  auto formatString(const String& s, int numLines, int maxCharPerLine) -> String {
     const int totalMaxChars = maxCharPerLine * numLines;
     const String ellipsis = "...";
 
@@ -35,20 +37,21 @@ namespace StringUtils {
     }
     return trimmed + ellipsis;
   }
-
-  String wordWrap(String s, int limit) {
+  
+  // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
+  auto wordWrap(String& s, int limit) -> String {
     int space = 0;
-    int i = 0;
+    int index = 0;
     int line = 0;
-    while (i < s.length()) {
-      if (s.substring(i, i + 1) == " ") {
-        space = i;
+    while (index < s.length()) {
+      if (s.substring(index, index + 1) == " ") {
+        space = index;
       }
       if (line > limit - 1) {
         s = s.substring(0, space) + "~" + s.substring(space + 1);
         line = 0;
       }
-      i++; line++;
+      index++; line++;
     }
     s.replace("~", "\n");
     return s;
