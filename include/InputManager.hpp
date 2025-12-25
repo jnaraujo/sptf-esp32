@@ -18,6 +18,6 @@ private:
 	std::array<ButtonState, Config::BTN_COUNT> buttons;
 
 public:
-	auto begin() -> void;
-	auto wasPressed(Config::ButtonType btnIndex) -> bool;
+	void begin();
+	bool wasPressed(Config::ButtonType btnIndex);
 };

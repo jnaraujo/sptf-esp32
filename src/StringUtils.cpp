@@ -2,7 +2,7 @@
 
 namespace StringUtils {
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-auto centerString(const String& text, int totalWidth) -> String {
+String centerString(const String& text, int totalWidth) {
 	int textLen = text.length();
 	if (textLen >= totalWidth) {
 		return text;
@@ -25,7 +25,7 @@ auto centerString(const String& text, int totalWidth) -> String {
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-auto formatString(const String& s, int numLines, int maxCharPerLine) -> String {
+String formatString(const String& s, int numLines, int maxCharPerLine) {
 	const int totalMaxChars = maxCharPerLine * numLines;
 	const String ellipsis = "...";
 
@@ -41,7 +41,7 @@ auto formatString(const String& s, int numLines, int maxCharPerLine) -> String {
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-auto wordWrap(const String& s, int limit) -> String {
+String wordWrap(const String& s, int limit) {
 	String str = s;
 
 	int space = 0;

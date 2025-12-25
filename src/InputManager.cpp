@@ -1,14 +1,14 @@
 #include "InputManager.hpp"
 
 // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
-auto InputManager::begin() -> void {
+void InputManager::begin() {
 	for (size_t i = 0; i < Config::BTN_COUNT; i++) {
 		pinMode(Config::BTN_PINS[i], INPUT_PULLUP);
 		this->buttons[i] = {Config::BTN_PINS[i], HIGH, HIGH, 0};
 	}
 }
 
-auto InputManager::wasPressed(Config::ButtonType index) -> bool {
+bool InputManager::wasPressed(Config::ButtonType index) {
 	ButtonState& btn = this->buttons.at(index);
 	int reading = digitalRead(btn.pin);
 	bool pressed = false;
