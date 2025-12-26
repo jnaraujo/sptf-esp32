@@ -3,11 +3,12 @@
 #include <Arduino.h>
 
 #include <string>
+#include <string_view>
 
 namespace StringUtils {
-std::string centerString(const std::string& text, int totalWidth);
+std::string centerString(std::string_view text, int totalWidth);
 
-std::string formatString(const std::string& s, int numLines, int maxCharPerLine);
+std::string formatString(std::string_view s, int numLines, int maxCharPerLine);
 
-std::string wordWrap(const std::string& s, int limit);
+std::string wordWrap(std::string_view s, int limit);
 }  // namespace StringUtils
