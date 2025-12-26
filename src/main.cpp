@@ -37,7 +37,7 @@ uint32_t lastRefreshTokenMillis = 0;
 
 // --- Prototypes ---
 void backgroundTask(void* pvParameters);
-void handleButtonPress(Config::ButtonType btn, const PlaybackState& currentState);
+void handleButtonPress(Config::ButtonType btn, PlaybackState& currentState);
 void fetchSpotifyState();
 
 void addRequestToPool(SpotifyCmd cmd, int value = 0) {
@@ -72,10 +72,13 @@ void loop() {
 		return;
 	}
 
-	PlaybackState currentState;
-	{
+	static PlaybackState currentState;
+	static unsigned long lastSync = 0;
+
+	if (millis() - lastSync > Config::FETCH_SPOTIFY_STATE_INTERVAL_MS) {
 		std::lock_guard<std::mutex> lock(spotifyStateMutex);
 		currentState = spotifyState;
+		lastSync = millis();
 	}
 
 	for (int i = 0; i < Config::BTN_COUNT; i++) {
@@ -88,7 +91,7 @@ void loop() {
 	displayManager.render(currentState);
 }
 
-void handleButtonPress(Config::ButtonType btn, const PlaybackState& currentState) {
+void handleButtonPress(Config::ButtonType btn, PlaybackState& currentState) {
 	DEBUG_PRINTF("BTN ID: %d\n", btn);
 
 	constexpr int VOL_STEP = 10;
@@ -102,13 +105,19 @@ void handleButtonPress(Config::ButtonType btn, const PlaybackState& currentState
 			break;
 		case Config::ButtonType::BTN_CONFIRM:
 			addRequestToPool(currentState.isPlaying ? SpotifyCmd::PAUSE : SpotifyCmd::PLAY);
+			// currentState.isPlaying = !currentState.isPlaying;
 			break;
-		case Config::ButtonType::BTN_UP:
-			addRequestToPool(SpotifyCmd::SET_VOLUME, currentState.volume_percent + VOL_STEP);
-			break;
-		case Config::ButtonType::BTN_DOWN:
-			addRequestToPool(SpotifyCmd::SET_VOLUME, currentState.volume_percent - VOL_STEP);
-			break;
+		case Config::ButtonType::BTN_UP: {
+			auto new_volume = std::clamp(currentState.volume_percent + VOL_STEP, 0, 100);
+			currentState.volume_percent = new_volume;
+			addRequestToPool(SpotifyCmd::SET_VOLUME, new_volume);
+		} break;
+		case Config::ButtonType::BTN_DOWN: {
+			auto new_volume = std::clamp(currentState.volume_percent - VOL_STEP, 0, 100);
+			currentState.volume_percent = new_volume;
+			addRequestToPool(SpotifyCmd::SET_VOLUME, new_volume);
+
+		} break;
 		default:
 			break;
 	}
