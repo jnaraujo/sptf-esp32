@@ -2,10 +2,12 @@
 
 #include <Arduino.h>
 
+#include <string>
+
 namespace StringUtils {
-String centerString(const String& text, int totalWidth);
+std::string centerString(const std::string& text, int totalWidth);
 
-String formatString(const String& s, int numLines, int maxCharPerLine);
+std::string formatString(const std::string& s, int numLines, int maxCharPerLine);
 
-String wordWrap(const String& s, int limit);
+std::string wordWrap(const std::string& s, int limit);
 }  // namespace StringUtils

@@ -1,8 +1,7 @@
 #include "StringUtils.hpp"
 
 namespace StringUtils {
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-String centerString(const String& text, int totalWidth) {
+std::string centerString(const std::string& text, int totalWidth) {
 	int textLen = text.length();
 	if (textLen >= totalWidth) {
 		return text;
@@ -11,7 +10,7 @@ String centerString(const String& text, int totalWidth) {
 	int leftPadding = totalPadding / 2;
 	int rightPadding = totalPadding - leftPadding;
 
-	String paddedString = "";
+	std::string paddedString = "";
 	paddedString.reserve(totalWidth);
 
 	for (int i = 0; i < leftPadding; i++) {
@@ -24,41 +23,49 @@ String centerString(const String& text, int totalWidth) {
 	return paddedString;
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-String formatString(const String& s, int numLines, int maxCharPerLine) {
-	const int totalMaxChars = maxCharPerLine * numLines;
-	const String ellipsis = "...";
+std::string formatString(const std::string& s, int numLines, int maxCharPerLine) {
+	const size_t totalMaxChars = (size_t)maxCharPerLine * numLines;
+	const std::string ellipsis = "...";
 
 	if (s.length() <= totalMaxChars) {
 		return s;
 	}
 
-	String trimmed = s.substring(0, totalMaxChars - ellipsis.length());
-	if (trimmed.endsWith(" ")) {
-		trimmed.remove(trimmed.length() - 1);
+	// Calculate safe limit to avoid underflow
+	size_t limit = (totalMaxChars > ellipsis.length()) ? (totalMaxChars - ellipsis.length()) : 0;
+
+	std::string trimmed = s.substr(0, limit);
+
+	// Remove trailing space if it exists (Replaces .ends_with and .remove)
+	if (!trimmed.empty() && trimmed.back() == ' ') {
+		trimmed.pop_back();
 	}
+
 	return trimmed + ellipsis;
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
-String wordWrap(const String& s, int limit) {
-	String str = s;
+std::string wordWrap(const std::string& s, int limit) {
+	std::string str = s;
+	int lastSpace = -1;
+	int lineCount = 0;
 
-	int space = 0;
-	int index = 0;
-	int line = 0;
-	while (index < str.length()) {
-		if (str.substring(index, index + 1) == " ") {
-			space = index;
+	for (size_t i = 0; i < str.length(); ++i) {
+		if (str[i] == ' ') {
+			lastSpace = i;
 		}
-		if (line > limit - 1) {
-			str = str.substring(0, space) + "~" + str.substring(space + 1);
-			line = 0;
+
+		if (lineCount >= limit) {
+			if (lastSpace != -1) {
+				// Replace space with newline at the last found space
+				str[lastSpace] = '\n';
+				// Reset lineCount to the distance from the new newline to current index
+				lineCount = i - lastSpace;
+				lastSpace = -1;
+			}
 		}
-		index++;
-		line++;
+		lineCount++;
 	}
-	str.replace("~", "\n");
+
 	return str;
 }
 }  // namespace StringUtils

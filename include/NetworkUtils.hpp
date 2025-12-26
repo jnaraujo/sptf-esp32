@@ -2,7 +2,8 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <string>
 
 namespace NetworkUtils {
-String wifiStatusToString(wl_status_t status);
+std::string wifiStatusToString(wl_status_t status);
 }

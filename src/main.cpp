@@ -174,14 +174,14 @@ void backgroundTask(void* pvParameters) {
 
 void fetchSpotifyState() {
 	DEBUG_PRINTLN("Fetching spotify state");
-	PlaybackState newSpotifyState = spotifyClient.fetchPlaybackState();
-	if (newSpotifyState.title == "err") {
-		DEBUG_PRINTLN("Err fetchPlaybackState");
+	auto newSpotifyState = spotifyClient.fetchPlaybackState();
+	if (!newSpotifyState) {
+		DEBUG_PRINTF("Err fetchPlaybackState. Code: %d\n", static_cast<int>(newSpotifyState.error()));
 		return;
 	}
 
 	{
 		std::scoped_lock lock(spotifyStateMutex);
-		spotifyState = newSpotifyState;
+		spotifyState = std::move(*newSpotifyState);
 	}
 }

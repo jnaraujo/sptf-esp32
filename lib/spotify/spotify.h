@@ -6,10 +6,13 @@
 #include <base64.h>
 #include <debug.h>
 
+#include <expected>
+#include <string>
+
 struct PlaybackState {
-	String title;
-	String artist;
-	String album;
+	std::string title;
+	std::string artist;
+	std::string album;
 	bool isPlaying;
 	int volume_percent;
 	int progress_ms;
@@ -26,13 +29,15 @@ struct PlaybackState {
 	}
 };
 
+enum class SpotifyError { HttpError, ParseError };
+
 class SpotifyClient {
 public:
 	SpotifyClient();
 	~SpotifyClient();
 
-	void refreshToken(const String& clientID, const String& clientSecret, const String& refreshToken);
-	PlaybackState fetchPlaybackState();
+	void refreshToken(const std::string& clientID, const std::string& clientSecret, const std::string& refreshToken);
+	std::expected<PlaybackState, SpotifyError> fetchPlaybackState();
 	void play();
 	void pause();
 	void next();
@@ -42,8 +47,8 @@ public:
 private:
 	HTTPClient httpClient;
 
-	String token;
-	String SPOTIFY_API_BASE = "https://api.spotify.com";
+	std::string token;
+	std::string SPOTIFY_API_BASE = "https://api.spotify.com";
 
-	void prepareRequest(String endpoint);
+	void prepareRequest(std::string endpoint);
 };

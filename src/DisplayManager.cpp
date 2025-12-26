@@ -21,15 +21,16 @@ void DisplayManager::render(const PlaybackState& state) {
 
 	this->u8g2.setFont(u8g2_font_profont10_tf);
 	this->u8g2.setCursor(0, Layout::HEADER_Y);
-	String header = StringUtils::formatString(state.artist, Layout::ARTIST_NUM_LINES, Layout::MAX_CHARS_ARTIST) +
-					" - " + state.album;
-	this->u8g2.print(StringUtils::formatString(header, Layout::HEADER_NUM_LINES, Layout::MAX_CHARS_HEADER));
+	auto header = StringUtils::formatString(state.artist, Layout::ARTIST_NUM_LINES, Layout::MAX_CHARS_ARTIST) + " - " +
+				  state.album;
+	this->u8g2.print(StringUtils::formatString(header, Layout::HEADER_NUM_LINES, Layout::MAX_CHARS_HEADER).c_str());
 
 	this->u8g2.setFont(u8g2_font_profont17_tf);
 	this->u8g2.setCursor(0, Layout::TITLE_Y);
 	this->u8g2.print(
 		StringUtils::wordWrap(StringUtils::formatString(state.title, Layout::TITLE_NUM_LINES, Layout::MAX_CHARS_TITLE),
-							  Layout::MAX_CHARS_TITLE));
+							  Layout::MAX_CHARS_TITLE)
+			.c_str());
 
 	drawPlayerStatus(state.isPlaying);
 	drawProgressBar(state.progress_ms, state.duration_ms);
@@ -43,7 +44,7 @@ void DisplayManager::drawPlayerStatus(bool isPlaying) {
 		lastBlinkTime = millis();
 	}
 
-	String face = isPlaying ? "(^-^)/" : "(-.-) zZ";
+	std::string face = isPlaying ? "(^-^)/" : "(-.-) zZ";
 	if (shouldBlink) {
 		face = isPlaying ? "(^O^)_" : "(-.-) Zz";
 	}
