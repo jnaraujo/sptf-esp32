@@ -2,6 +2,8 @@
 #include <WiFi.h>
 #include <Wire.h>
 
+#include <mutex>
+
 #include "Config.hpp"
 #include "DisplayManager.hpp"
 #include "InputManager.hpp"
@@ -24,7 +26,7 @@ InputManager inputManager;
 DisplayManager displayManager;
 
 // --- Concurrency ---
-SemaphoreHandle_t spotifyStateMutex;
+std::mutex spotifyStateMutex;
 PlaybackState spotifyState;
 QueueHandle_t requestPool = xQueueCreate(6, sizeof(SpotifyRequest));
 
@@ -52,7 +54,6 @@ void setup() {
 	// Init Modules
 	inputManager.begin();
 	displayManager.begin();
-	spotifyStateMutex = xSemaphoreCreateMutex();
 
 	DEBUG_PRINTLN("Connecting to Wi-Fi");
 	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -72,9 +73,9 @@ void loop() {
 	}
 
 	PlaybackState currentState;
-	if (xSemaphoreTake(spotifyStateMutex, portMAX_DELAY)) {
+	{
+		std::lock_guard<std::mutex> lock(spotifyStateMutex);
 		currentState = spotifyState;
-		xSemaphoreGive(spotifyStateMutex);
 	}
 
 	for (int i = 0; i < Config::BTN_COUNT; i++) {
@@ -179,7 +180,8 @@ void fetchSpotifyState() {
 		return;
 	}
 
-	xSemaphoreTake(spotifyStateMutex, portMAX_DELAY);
-	spotifyState = newSpotifyState;
-	xSemaphoreGive(spotifyStateMutex);
+	{
+		std::scoped_lock lock(spotifyStateMutex);
+		spotifyState = newSpotifyState;
+	}
 }
