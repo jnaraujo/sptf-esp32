@@ -47,26 +47,27 @@ std::expected<PlaybackState, SpotifyError> SpotifyClient::fetchPlaybackState() {
 
 	int status = this->httpClient.GET();
 
+	if (status < 0) {
+		DEBUG_PRINTF("HTTP Error: %d\n", status);
+		this->httpClient.end();
+		return std::unexpected(SpotifyError::HttpError);
+	}
+
 	PlaybackState ps;
 
 	if (status == 204) {
-		this->httpClient.end();
-
 		ps.title = "Not Playing";
 		ps.artist = "(o_O)";
 		return ps;
 	}
 
 	if (status != 200) {
-		this->httpClient.end();
 		DEBUG_PRINTF("HTTP Error: %d\n", status);
 		return std::unexpected(SpotifyError::HttpError);
 	}
 
 	JsonDocument doc;
 	auto error = deserializeJson(doc, this->httpClient.getStream());
-
-	this->httpClient.end();
 
 	if (error) {
 		DEBUG_PRINT("Erro ao parsear JSON: ");
@@ -90,7 +91,12 @@ void SpotifyClient::play() {
 	this->httpClient.addHeader("Content-Length", "0");
 
 	int status = this->httpClient.PUT("");
-	this->httpClient.end();
+
+	if (status < 0) {
+		DEBUG_PRINTF("HTTP Error: %d\n", status);
+		this->httpClient.end();
+		return;
+	}
 
 	if (status != 200) {
 		DEBUG_PRINTF("HTTP Error: %d\n", status);
@@ -103,7 +109,12 @@ void SpotifyClient::pause() {
 	this->httpClient.addHeader("Content-Length", "0");
 
 	int status = this->httpClient.PUT("");
-	this->httpClient.end();
+
+	if (status < 0) {
+		DEBUG_PRINTF("HTTP Error: %d\n", status);
+		this->httpClient.end();
+		return;
+	}
 
 	if (status != 200) {
 		DEBUG_PRINTF("HTTP Error: %d\n", status);
@@ -116,7 +127,12 @@ void SpotifyClient::next() {
 	this->httpClient.addHeader("Content-Length", "0");
 
 	int status = this->httpClient.POST("");
-	this->httpClient.end();
+
+	if (status < 0) {
+		DEBUG_PRINTF("HTTP Error: %d\n", status);
+		this->httpClient.end();
+		return;
+	}
 
 	if (status != 200) {
 		DEBUG_PRINTF("HTTP Error: %d\n", status);
@@ -129,7 +145,12 @@ void SpotifyClient::previous() {
 	this->httpClient.addHeader("Content-Length", "0");
 
 	int status = this->httpClient.POST("");
-	this->httpClient.end();
+
+	if (status < 0) {
+		DEBUG_PRINTF("HTTP Error: %d\n", status);
+		this->httpClient.end();
+		return;
+	}
 
 	if (status != 200) {
 		DEBUG_PRINTF("HTTP Error: %d\n", status);
@@ -144,7 +165,12 @@ void SpotifyClient::setVolume(int volume) {
 	this->httpClient.addHeader("Content-Length", "0");
 
 	int status = this->httpClient.PUT("");
-	this->httpClient.end();
+
+	if (status < 0) {
+		DEBUG_PRINTF("HTTP Error: %d\n", status);
+		this->httpClient.end();
+		return;
+	}
 
 	if (status != 204) {
 		DEBUG_PRINTF("HTTP Error: %d\n", status);
@@ -159,5 +185,5 @@ void SpotifyClient::prepareRequest(std::string endpoint) {
 	std::string authValue = "Bearer " + this->token;
 	this->httpClient.addHeader("Authorization", authValue.c_str());
 	this->httpClient.setReuse(true);
-	this->httpClient.setTimeout(2000);
+	this->httpClient.setTimeout(3000);
 }
