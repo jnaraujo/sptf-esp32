@@ -19,6 +19,14 @@ void DisplayManager::begin() {
 void DisplayManager::render(const PlaybackState& state) {
 	this->display.clearDisplay();
 
+	auto currentProgress = state.progress_ms;
+
+	if (state.isPlaying && state.duration_ms > 0 && state.updated_at > 0) {
+		auto delta = millis() - state.updated_at;
+		currentProgress += delta;
+		currentProgress = std::clamp(currentProgress, 0, state.duration_ms);
+	}
+
 	this->u8g2.setFont(u8g2_font_profont10_tf);
 	this->u8g2.setCursor(0, Layout::HEADER_Y);
 	auto header = StringUtils::formatString(state.artist, Layout::ARTIST_NUM_LINES, Layout::MAX_CHARS_ARTIST) + " - " +
@@ -33,7 +41,7 @@ void DisplayManager::render(const PlaybackState& state) {
 			.c_str());
 
 	drawPlayerStatus(state.isPlaying);
-	drawProgressBar(state.progress_ms, state.duration_ms);
+	drawProgressBar(currentProgress, state.duration_ms);
 
 	this->display.display();
 }

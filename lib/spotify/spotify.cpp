@@ -54,6 +54,7 @@ std::expected<PlaybackState, SpotifyError> SpotifyClient::fetchPlaybackState() {
 	}
 
 	PlaybackState ps;
+	ps.updated_at = millis();
 
 	if (status == 204) {
 		ps.title = "Not Playing";

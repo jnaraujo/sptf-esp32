@@ -12,6 +12,7 @@ class DisplayManager {
 private:
 	Adafruit_SSD1306 display{Config::DISPLAY_WIDTH, Config::DISPLAY_HEIGHT, &Wire, -1};
 	U8G2_FOR_ADAFRUIT_GFX u8g2;
+	unsigned long lastUpdate = 0;
 
 	struct Layout {
 		static constexpr int HEADER_Y = 10;

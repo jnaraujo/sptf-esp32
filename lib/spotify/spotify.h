@@ -17,6 +17,7 @@ struct PlaybackState {
 	int volume_percent;
 	int progress_ms;
 	int duration_ms;
+	unsigned long updated_at;
 
 	PlaybackState() {
 		title = "N/A";
@@ -26,6 +27,7 @@ struct PlaybackState {
 		volume_percent = 0;
 		progress_ms = 0;
 		duration_ms = 0;
+		updated_at = 0;
 	}
 };
 
