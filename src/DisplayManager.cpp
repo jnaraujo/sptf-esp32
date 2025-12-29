@@ -1,5 +1,9 @@
 #include "DisplayManager.hpp"
 
+#include <Arduino.h>
+
+#include <string>
+
 #include "StringUtils.hpp"
 
 void DisplayManager::begin() {

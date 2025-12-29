@@ -3,8 +3,6 @@
 #include <Adafruit_SSD1306.h>
 #include <U8g2_for_Adafruit_GFX.h>
 
-#include <string>
-
 #include "Config.hpp"
 #include "spotify.h"
 
